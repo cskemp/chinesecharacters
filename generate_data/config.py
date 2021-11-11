@@ -31,7 +31,7 @@ HANDWRITTEN_DATASETS = ["hzy", "casia", "traditional"]
 FONT_DATASETS = ["Hiragino Sans GB", "SimSun"]
 
 # Where is everything located?
-ROOT = "C:/Users/Jerome/Documents/hanzi_data"
+ROOT = "" # Set me to something!
 IMAGES_LOCATION = f"{ROOT}/images"
 COMPLEXITIES_LOCATION = f"{ROOT}/complexities"
 DISTINCTIVENESS_LOCATION = f"{ROOT}/distinctiveness"

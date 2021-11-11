@@ -1,7 +1,3 @@
-# Hello! Run this to reproduce our experiment, but please make sure to complete the manual steps as directed in the README. 
-# Also, some of the packages we rely on are super gross to install, so at times we ended up switching between macOS and Windows
-# systems. Be warned!
-
 import logging
 import click
 
@@ -17,12 +13,12 @@ from generate_zdic_dataframes import get_stroke_gif_complexities
 logging.getLogger().setLevel(logging.INFO)
 
 @click.command()
-@click.option('--preprocess', default=False, help='Whether or not to preprocess images before calculating complexity')
-@click.option('--calculate-complexity', default=False, help='Whether or not to (re?)generate complexity dataframes')
+@click.option('--preprocess', default=True, help='Whether or not to preprocess images before calculating complexity')
+@click.option('--calculate-complexity', default=True, help='Whether or not to (re?)generate complexity dataframes')
 @click.option('--limit-dataset', default=None, help='Limit preprocessing and complexity calculating to images of a single dataset')
-@click.option('--generate-distinctiveness-data', default=False, help='Generate datasets for distinctiveness analysis')
-@click.option('--calculate-character-distinctiveness', default=False, help='Calculate the distinctiveness of individual characters')
-@click.option('--generate-descriptive-data', default=False, help='Copy median complexity images over to a new folder for calculating descriptive complexity')
+@click.option('--generate-distinctiveness-data', default=True, help='Generate datasets for distinctiveness analysis')
+@click.option('--calculate-character-distinctiveness', default=True, help='Calculate the distinctiveness of individual characters')
+@click.option('--generate-descriptive-data', default=True, help='Copy median complexity images over to a new folder for calculating descriptive complexity')
 def main(
     preprocess: bool,
     calculate_complexity: bool,
