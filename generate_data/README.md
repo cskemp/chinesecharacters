@@ -13,16 +13,14 @@ Running main.py will by default generate a fully processed image dataset for com
 
 CLD, CCD, handwritten simplified and handwritten traditional data need to be downloaded and placed into the data folder manually, and then main.py will take care of the rest.
 
-Upon completing this step, your root datafolder should look like this:
-
-data_folder/
+Upon completing this step, your root datafolder should contain the following files:
 
     chineselexicaldatabase2.1.csv
 
     ccd.tsv
 
     CASIA-HWDB_Test
-    
+
     cleaned_data
 
 #### CLD: Chinese Lexical Database
