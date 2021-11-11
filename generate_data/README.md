@@ -37,7 +37,7 @@ Handwritten simplified images are originally sourced from `http://www.nlpr.ia.ac
 
 #### Traditional Handwritten Chinese Character Images
 
-Handwritten traditional images can be downloaded from from https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset. Specifically, you can first download thea common words dataset using `git clone https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset.git`. You should then extract all four .zip files before moving the `cleaned_data` folder into your root data folder.
+Handwritten traditional images can be downloaded from from `https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset`. Specifically, you can first download thea common words dataset using `git clone https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset.git`. You should then extract all four .zip files before moving the `cleaned_data` folder into your root data folder.
 
 
 ## Measuring Discriminability
