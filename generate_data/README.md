@@ -16,9 +16,13 @@ CLD, CCD, handwritten simplified and handwritten traditional data need to be dow
 Upon completing this step, your root datafolder should look like this:
 
 data_folder/
+
     chineselexicaldatabase2.1.csv
+
     ccd.tsv
+
     CASIA-HWDB_Test
+    
     cleaned_data
 
 #### CLD: Chinese Lexical Database
