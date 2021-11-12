@@ -33,11 +33,11 @@ CCD data can be downloaded from `https://commons.wikimedia.org/wiki/User:Artsake
 
 #### Simplified Handwritten Chinese Character Images
 
-Handwritten simplified images are originally sourced from `http://www.nlpr.ia.ac.cn/databases/handwriting/Home.html`, but we downloaded them from `https://www.kaggle.com/pascalbliem/handwritten-chinese-character-hanzi-datasets`. Download only the TEST dataset from this link and extract the files into your root data folder. Make sure your character encoding to UTF-8!.
+Handwritten simplified images are originally sourced from `http://www.nlpr.ia.ac.cn/databases/handwriting/Home.html`, but we downloaded them from `https://www.kaggle.com/pascalbliem/handwritten-chinese-character-hanzi-datasets`. Download only the TEST dataset from this link and extract the files into your root data folder. Make sure your character encoding is set to UTF-8!.
 
 #### Traditional Handwritten Chinese Character Images
 
-Handwritten traditional images can be downloaded from from `https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset`. Specifically, you can first download thea common words dataset using `git clone https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset.git`. You should then extract all four .zip files before moving the `cleaned_data` folder into your root data folder.
+Handwritten traditional images can be downloaded from from `https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset`. Specifically, you can first download the common words dataset using `git clone https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset.git`. You should then extract all four .zip files before moving the `cleaned_data` folder into your root data folder.
 
 
 ## Measuring Discriminability
