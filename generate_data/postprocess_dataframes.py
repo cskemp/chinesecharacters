@@ -5,16 +5,8 @@ import opencc
 import pandas as pd
 
 def postprocess_dataframes():
-    ## Additional Materials
 
-    #### Behavioural Experiment Characters
-
-    #### Mapping Characters to Simplified Forms
-
-    #### Finding Representative Images for each Character
     complexity_postprocessing()
-
-    discriminability_postprocessing()
 
     return
 
@@ -29,7 +21,7 @@ def complexity_postprocessing():
         for dataset in config.HANDWRITTEN_DATASETS + config.FONT_DATASETS:
             complexity_dataset_path = f"{config.COMPLEXITIES_LOCATION}/{dataset}_{'stretched' if stretch else 'padded'}_{config.SKELETONISE_METHOD}.csv"
             df = pd.read_csv(complexity_dataset_path, index_col=0)
-
+            
             # Add dataset, skeletonise method and stretch
             df["dataset"] = [dataset] * df.shape[0]
             df["scale_method"] = ["pad" if not stretch else "stretch"] * df.shape[0]
@@ -86,7 +78,4 @@ def complexity_postprocessing():
     combined_df = combined_df.rename({"original_character":"rendered_character"}, axis=1)
     combined_df.to_csv(config.data_file_locations["all_complexities"])
 
-    return
-
-def discriminability_postprocessing():
     return
