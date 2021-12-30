@@ -14,16 +14,15 @@ def generate_descriptive_dataset():
     complexities = pd.read_csv(config.data_file_locations["all_complexities"], index_col=0)
     complexities = complexities[complexities["scale_method"] == "pad"].reset_index(drop=True)
 
-    cld = pd.read_csv(config.data_file_locations["cld_processed"], index_col=0)
+    cld = pd.read_csv(config.data_file_locations["cld"], index_col=0)
     cld_characters = set(cld["Character"])
     complexities = complexities[(complexities["rendered_character"].isin(cld_characters)) | (complexities["simplified_character"].isin(cld_characters))]
 
-    rows = []
-    for _, ddf in complexities.groupby("dataset"):
-        for _, cdf in ddf.groupby("rendered_character"):
-            df = cdf.sort_values(by="perimetric_complexity")
-            row = tuple(df.iloc[int(df.shape[0]/2)].values)
-            rows.append(row)
+    rows = []   
+    for _, ddf in complexities.groupby(["dataset", "period", "rendered_character"]):
+        df = ddf.sort_values(by="perimetric_complexity")
+        row = tuple(df.iloc[int(df.shape[0]/2)].values)
+        rows.append(row)
 
     descriptive_df = pd.DataFrame(rows, columns=complexities.columns)
     copy_rows = []
@@ -47,7 +46,7 @@ def generate_descriptive_dataset():
             image_path = f"{config.IMAGES_LOCATION}/{dataset}_padded_lee/{rendered_character}_Simplified_{image_id}.png"
 
         copy_rows.append((image_path, config.data_file_locations["descriptive_images"], rendered_character, period, image_id, dataset))
-
+    
     if not os.path.exists(config.data_file_locations["descriptive_images"]):
         os.mkdir(config.data_file_locations["descriptive_images"])
 
@@ -59,3 +58,5 @@ def generate_descriptive_dataset():
     for ds in config.FONT_DATASETS + config.HANDWRITTEN_DATASETS:
         logging.info(f"  Copied {descriptive_df[descriptive_df['dataset'] == ds].shape[0]} skeletons over for descriptive complexity analysis for {ds} dataset.")
 
+if __name__ == "__main__":
+    generate_descriptive_dataset()
