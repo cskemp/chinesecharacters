@@ -79,10 +79,7 @@ def complexity_postprocessing():
 
     cld = pd.read_csv(config.data_file_locations["cld"], index_col=0)
     cld_characters = set(cld["Character"])
-    hzy_characters = set(combined_df[combined_df["dataset"] == "hzy"]["rendered_character"])
-    chinese_characters = cld_characters.union(hzy_characters)
-
-    combined_df = combined_df[combined_df["rendered_character"].isin(chinese_characters)]
+    combined_df = combined_df[combined_df["rendered_character"].isin(cld_characters)]
     combined_df.to_csv(config.data_file_locations["all_complexities"])
 
     return
