@@ -76,9 +76,13 @@ def complexity_postprocessing():
     
     logging.info(f"    Combined complexity dataframes into single file of with {combined_df.shape[0]} rows.")
     combined_df = combined_df.rename({"original_character":"rendered_character"}, axis=1)
+
     cld = pd.read_csv(config.data_file_locations["cld"], index_col=0)
     cld_characters = set(cld["Character"])
-    combined_df = combined_df[combined_df["rendered_character"].isin(cld_characters)]
+    hzy_characters = set(combined_df[combined_df["dataset"] == "hzy"]["rendered_character"])
+    chinese_characters = cld_characters.union(hzy_characters)
+
+    combined_df = combined_df[combined_df["rendered_character"].isin(chinese_characters)]
     combined_df.to_csv(config.data_file_locations["all_complexities"])
 
     return
