@@ -12,3 +12,6 @@ def main():
     distinctiveness_dataset.calculate_persistent_stream_distinctiveness()
     distinctiveness_dataset.calculate_distinctiveness_dataset_complexities()
     logging.info("Distinctiveness data OK!")
+
+if __name__ == "__main__":
+    main()
