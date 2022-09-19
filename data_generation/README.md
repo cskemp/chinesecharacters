@@ -2,16 +2,15 @@
 
 This folder contains the complete codebase for retrieving our image datasets, preprocessing these datasets and then measuring complexity and discriminability. 
 
-## Running main.py
-1. Download CLD, CASIA and handwritten datasets and paste raw folders into a new data folder. Instructions for each dataset can be found below. Do not rename anything.
-2. Change ROOT in config.py to match the path of your data folder.
-3. Run main.py!
+## Generating our datasets
+1. Download CLD, CASIA and handwritten datasets and paste raw folders into the folder. Instructions for each dataset can be found below. Do not rename anything.
+2. Run generate_datasets.py to generate all image and complexity datasets, and generate_distinctiveness_datasets.py to generate the distinctiveness dataframes!
 
-Running main.py will by default generate a fully processed image dataset for complexity and discriminability analysis, as well as csv files containing perimetric and pixel complexities for all of the generated images. This process may take a while to run depending on how fast your machine is. It involves web scraping, so it cannot be run offline.
+This process may take a while to run depending on how fast your machine is. It involves web scraping, so it cannot be run offline.
 
 ## Manually Downloaded Data
 
-CLD, CCD, handwritten simplified and handwritten traditional data need to be downloaded and placed into the data folder manually, and then main.py will take care of the rest.
+CLD, CCD, handwritten simplified and handwritten traditional data need to be downloaded and placed into the data folder manually, and then generate_datasets.py will take care of the rest.
 
 Upon completing this step, your root datafolder should contain the following files:
 
@@ -50,4 +49,4 @@ The pretrained model that we use is downloaded from `https://github.com/chongyan
 
 ## Measuring Descriptive Complexity
 
-Our descriptive complexity code is also packaged separately in `generate_data/descriptive_complexity`. This is because this code depends on a Potrace installation, which is easiest to accomplish on MacOS. `generate_data/descriptive_complexity/potrace.py` can easily be run on MacOS without any other setup effort. Once this is complete, copy the outputted .csv file `descriptive_complexities.csv` back into your root data folder's complexity folder.
+Our descriptive complexity code is also packaged separately in `generate_data/descriptive_complexity`. This is because this code depends on a Potrace installation, which is easiest to accomplish with homebrew. `generate_data/descriptive_complexity/potrace.py` can easily be run on MacOS (and Linux?) without any other setup effort. Once this is complete, copy the outputted .csv file `descriptive_complexities.csv` back into the data folder's complexity folder.
