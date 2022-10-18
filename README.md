@@ -1,4 +1,5 @@
 This repository contains code, data and experimental materials for:
+
 Han, S. J, Kelly, P., Winters, J., & Kemp, C. (2022). Simplification is not dominant in the evolution of Chinese characters. *Open Mind*.
 
 ## Folder Structure
