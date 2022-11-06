@@ -4,6 +4,7 @@ import os
 import logging
 import multiprocessing
 import sklearn
+import sklearn.metrics
 import image_helpers
 
 import pandas as pd
@@ -197,10 +198,7 @@ def calculate_distinctiveness_dataset_complexities():
     perimetric_complexities = []
     pixel_complexities = []
     for _, row in distinctiveness_df.iterrows():
-        if row["dataset"] not in config.FONT_DATASETS or row["period"] == "Simplfied":
-            image_path = f"{config.data_file_locations['distinctiveness_images']}/{row['rendered_character']}_{row['period']}_{row['image_id']}_{row['dataset']}.png"
-        else:
-            image_path = f"{config.data_file_locations['distinctiveness_images']}/{row['rendered_character']}_Simplified_{row['image_id']}_{row['dataset']}.png"
+        image_path = f"{config.data_file_locations['distinctiveness_images']}/{row['rendered_character']}_{row['period']}_{row['image_id']}_{row['dataset']}.png"
         perimetric_complexity, pixel_complexity = image_helpers.perimetric_complexity(image_path)
 
         perimetric_complexities.append(perimetric_complexity)

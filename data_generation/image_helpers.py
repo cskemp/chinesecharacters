@@ -3,13 +3,17 @@ os.environ['path'] += r";C:\Program Files\GTK3-Runtime Win64\bin"
 
 import numpy as np
 
-import cairosvg
+#import cairosvg
 import PIL
 import itertools
 import functools
 import math
 import skimage
+import skimage.io
+import skimage.morphology
 import shutil
+import PIL.ImageStat
+import PIL.ImageChops
 
 from typing import List
 

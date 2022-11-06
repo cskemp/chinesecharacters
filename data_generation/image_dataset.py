@@ -16,6 +16,7 @@ import base64
 import html2image
 import shutil
 import skimage
+import skimage.io
 
 import image_helpers
 
