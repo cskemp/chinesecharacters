@@ -1,0 +1,115 @@
+/* http://jsfiddle.net/Madmartigan/34UCn/5/ */
+
+.bigdivlo {
+   width:50%;
+   height:50%;
+   position:absolute;
+}
+.bigdivlo img {
+   position:absolute;
+   left:-70%;
+   top:-40%;
+   margin-left:auto;
+   margin-top:auto;
+}
+
+.float-container {
+    position:absolute;
+    left:0%;
+    top:30%;
+    width:100%
+}
+
+.float-child {
+    width: 50%;
+    float: left;
+}
+
+.float-child img {
+   margin-left:auto;
+   margin-top:auto;
+}
+
+
+.bigdivl {
+   width:50%;
+   float:left
+}
+.bigdivl img {
+   margin-left:auto;
+   margin-top:auto;
+}
+
+
+.bigdivr {
+   height:50%;
+   margin-left:50%
+}
+.bigdivr img {
+   height:10%; 
+   margin-left:auto;
+   margin-top:auto;
+}
+
+
+
+//   left:-75%;
+//   top:-40%;
+//   margin-left:-0px;
+//   margin-top:-0px;
+
+
+.bigdivro {
+   width:50%;
+   height:50%;
+   position:absolute;
+}
+.bigdivro img {
+   position:absolute;
+   left:70%;
+   top:-40%;
+   margin-left:auto;
+   margin-top:auto;
+}
+
+//left:40%;
+//   top:-40%;
+//   margin-left:-0px;
+//   margin-top:-0px;
+//
+
+
+
+
+
+.ckwrapper {
+   overflow:hidden;
+   width:320px;
+}
+.ckwrapper div {
+    /* any width up to (total img width) * (num_columns) */
+    /* the rest will be chopped off by overflow:hidden */
+    width:330px;
+    
+    /* chops off top "padding" of inner div (first row imgs top margin) */
+    margin-top:-10px;
+}
+
+.wimg{
+    width:130px;
+    height:130px;
+    //float:left;
+    //margin:10px 10px 0 0;
+    //background:blue;   
+}
+
+.wbanner{
+    max-width: 95%; /* this is mainly an IE 10-11 fix */
+    text-align: center;
+    margin: auto; /* this is for overflowing content */
+}
+
+.ckwrapper {
+    background:red;
+}
+

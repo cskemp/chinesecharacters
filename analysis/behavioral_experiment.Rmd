@@ -1,0 +1,329 @@
+---
+title: "Human ratings of complexity of pictographic characters: Oracle vs Traditional"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+This notebook analyzes data from a preregistered experiment that compared the complexity of traditional characters to their counterparts from the Oracle Bones period. There are two conditions: `handwritten` (handwritten traditional characters) and `printed` (traditional characters printed in Hiragino Sans GB). The Oracle forms are the same in both conditions.
+
+```{r libraries}
+library(tidyverse)
+library(here)
+library(lme4)
+library(brms)
+library(showtext)
+library(ggimage)
+library(ggrepel)
+library(ropencc)
+library(ggpubr)
+library(xtable)
+
+select <- dplyr::select
+showtext_auto()
+```
+
+
+```{r data, include=TRUE}
+
+dpathfont <- here("experiment", "data", "data_pictographic_ratings_oracle_printedtraditional.csv")
+dpathhw <- here("experiment", "data", "data_pictographic_ratings_oracle_hwtraditional.csv")
+
+font_add("hiragino", "Hiragino Sans GB.ttc")
+
+mytheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) +
+            theme(axis.text.y = element_text("hiragino", NULL, NULL, NULL))
+
+theme_set(mytheme)
+
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/public/all_complexities.csv"
+# XXX tmp
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+
+
+suffix = "pad"
+```
+
+First we look at how many participants in each condition met the inclusion criterion (responses to the 5 check pairs must all be correct)
+
+```{r inclusioncheck, include=TRUE}
+
+dall <- read_csv(dpathfont) %>% 
+  bind_rows(read_csv(dpathhw)) %>% 
+  mutate(origcondition = condition) %>% 
+  mutate(condition = if_else(condition=="traditional", "printed", "handwritten"))
+
+inclusion_summary <- dall %>%
+  select(participantid, condition, controlscore)  %>%
+  unique() %>% 
+  group_by(condition, controlscore) %>% 
+  summarize(counts = n())
+
+print(inclusion_summary)
+```
+In the handwritten condition 170 out of 199 participants meet the criterion. In the printed condition 132 out of 199 participants meet the criterion. All remaining analyses include only participants who met the criterion.
+
+We recruited 200 participants in each condition but responses of one participant in each condition were not recorded due to server error.
+
+Let's start with a basic plot to show the distribution of responses in each condition.
+
+```{r plotsummary, include=TRUE}
+dexp <- dall %>%   
+ filter(controlscore == 5) %>%
+ mutate(rating = rating-2.5) %>% 
+ mutate(binrating=rating>0) %>%
+ filter(!str_detect(character, "^control_")) %>% 
+ group_by(condition, character) %>% 
+ mutate(cmean = mean(rating)) %>% 
+ ungroup() %>% 
+ mutate(limage = here("experiment", "stimuli", "oracle", paste0(character, "_oracle.png")), 
+        rimage = here("experiment", "stimuli", origcondition, paste0(character, "_", origcondition, ".png"))) 
+       
+expsumm <- dexp %>% 
+  select(character, condition, cmean) %>% 
+  unique() %>% 
+  group_by(condition) %>% 
+  mutate(r = rank(cmean)) %>% 
+  mutate(plotlab = if_else(character %in% c("山", "车", "雨", "龟"), character, ''))
+
+conditionsummaryplot <- dexp %>% 
+  ggplot(aes(condition, rating )) +
+  geom_violin(adjust=2)  +
+  geom_hline(yintercept=0, color="grey") +
+  stat_summary(fun.y = mean, fun.ymin = mean, fun.ymax = mean, geom="crossbar")
+
+conditionsummaryplot
+```
+
+Responses of 3 or higher indicate cases where the traditional form was chosen as more complex.  Chance performance would produce an average of 2.5 (grey line). The data suggest that traditional forms tended to be judged as more complex, but the effect is relatively small (and smaller in the printed condition than the handwritten condition).
+
+
+```{r avbychar, include=TRUE}
+expsummnolab <- expsumm %>% 
+  filter(plotlab == "")
+
+expsummlab <- expsumm %>% 
+  filter(plotlab != "")
+
+conditioncmeanplot <- expsummnolab %>% 
+  ggplot(aes(condition, cmean, label=plotlab)) +
+  geom_violin() +
+  geom_hline(yintercept=0, color="black", size=0.1) +
+  stat_summary(fun.y = mean, geom="crossbar", fatten=0.5) +
+  geom_point(alpha=1.0, width=0.0, colour="gray", size=0.1, position = position_jitter(seed = 0))+
+  geom_point(data = expsummlab, alpha=1.0, width=0.2, colour="gray", size=0.1)+
+  geom_text_repel(data = expsummlab, direction = "y", size=2,  box.padding = 0.1, nudge_y = 0.001)+
+  stat_summary(geom="errorbar", width=0.15)+
+  ylim(-2.0, 2.5) +
+  ylab('character mean')
+
+conditioncmeanplot
+
+```
+Let's now look at the responses for individual characters. First we make Fig S3:
+
+```{r bycharacter_hwtrad, include=TRUE, fig.height=8, fig.width=7}
+data_handwritten <- dexp %>% 
+  filter(condition == "handwritten") %>% 
+  mutate(character = fct_reorder(character, cmean))  %>% 
+  group_by(character) %>% 
+  mutate(charid = cur_group_id()) %>% 
+  mutate(plotgroup = 4 - charid %/% 40 )
+
+data_printed <- dexp %>% 
+  filter(condition == "printed") %>% 
+  mutate(character = fct_reorder(character, cmean) )  %>% 
+  group_by(character) %>% 
+  mutate(charid = cur_group_id()) %>% 
+  mutate(plotgroup = 4 - charid %/% 40 )
+
+pairplot_hwtrad <- data_handwritten %>% 
+  ggplot(aes(character, rating)) +
+  geom_hline(yintercept=0, color="grey") +
+  geom_violin(adjust=2, size=0.1) +
+  facet_wrap(~plotgroup, scales="free_y", ncol=4) +
+  stat_summary(fun.y=mean, geom="point", size=0.5) +
+  geom_image( aes(x=character, y=2.95, image = rimage), 
+              size = 0.02, by = "height", asp = (1.5)/8 
+              )  +
+   geom_image( aes(x=character, y=-2.95, image = limage), 
+              size = 0.02, by = "height", asp = (1.5)/8 
+              )  +
+  ylim(-3.2, 3.2) +
+  coord_flip()  +
+  theme(
+  strip.text.x = element_blank()
+  ) 
+
+pairplot_hwtrad
+ggsave(here("figures", "figs3_exp_ratings_bycharacter_hwtrad.png"), plot = pairplot_hwtrad, width = 7,height = 8)
+```
+
+And the same plot for the printed condition (Fig S4):
+
+```{r bycharacter_printed, include=TRUE, fig.height=8, fig.width=7}
+pairplot_printed <- pairplot_hwtrad %+% data_printed
+pairplot_printed
+
+ggsave(here("figures", "figs4_exp_ratings_bycharacter_printed.png"), plot = pairplot_printed, width = 7,height = 8)
+```
+
+Mean ratings for the two conditions compared to each other:
+
+```{r conditioncompare, include=TRUE}
+
+condcompareplot <- expsumm %>% 
+  select(-r) %>% 
+  pivot_wider(names_from = condition, values_from = cmean) %>% 
+  ggplot(aes(printed, handwritten, label=character)) +
+  geom_point()  +
+  coord_fixed() +
+  geom_smooth(method="lm")  +
+  geom_text(nudge_x = 0.25, nudge_y = 0.12,  check_overlap = T  ) +
+  geom_hline(yintercept=0, linetype='dotted', color="grey") +
+  geom_vline(xintercept=0, linetype='dotted', color="grey") +
+  stat_cor(
+    aes(label = ..r.label..),
+    cor.coef.name='r'
+  ) 
+
+condcompareplot
+```
+
+There's a strong relationship, which is reassuring. We can also compare mean human ratings with differences in perimetric complexity (Fig S5)
+
+```{r humanvspc, include=TRUE}
+
+periods <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified')
+
+cc = converter(S2T)
+
+d_c <- read_csv(dpath_all) %>%
+  filter(scale_method==suffix) %>% 
+  rename(character =simplified_character, complexity= perimetric_complexity) %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>%
+  group_by(character) %>%
+  mutate(first = min(period)) %>% 
+  filter(first < "Traditional") # only include characters that appear in Seal period or before
+
+dsumm <- d_c %>%
+  group_by(character, period, first) %>%
+  dplyr::summarize(complexity=median(complexity), .groups="drop") %>%
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>% 
+  right_join(expsumm, by="character")
+
+dsummovstrad <- dsumm %>% 
+  pivot_wider(names_from="period", values_from = "complexity") %>% 
+  mutate(tradordiff = Traditional - Oracle)
+
+hvsmod_plot <- dsummovstrad %>% 
+  ggplot(aes(x=tradordiff, y=cmean, label=character)) +
+  geom_point()  +
+  geom_smooth(method="lm")  +
+  geom_text(nudge_x = 0.25, nudge_y = 0.12,  check_overlap = T  ) +
+  geom_hline(yintercept=0, linetype='dotted', color="grey") +
+  geom_vline(xintercept=0, linetype='dotted', color="grey")  +
+  facet_wrap(~condition) +
+  xlab("perimetric complexity difference") +
+  ylab("mean human rating") +
+  stat_cor(
+    aes(label = ..r.label..),
+    cor.coef.name='r'
+  ) 
+
+hvsmod_plot
+
+ggsave(here("figures", "figs5_exp_ratings_vs_pc.pdf"), plot = hvsmod_plot, width = 6, height = 3)
+
+```
+
+In the printed condition the regression line falls below the intersection of the dotted lines -- this suggests that perimetric complexity tends to treat printed characters as more complex than people do. There's no similar bias for the handwritten condition.
+
+## Statistical tests
+
+We'll start with the preregistered frequentist analyses. The code here generates Tables S2 and S3. For simplicity, we use logistic regression models, but it might be better to avoid dichotomizing the dependent variable and to treat it as an ordinal variable.
+
+```{r frequentiststats_handwritten, include=TRUE}
+m0 <- glmer(binrating ~ 0 + (1|character) + (1|participantid), data = data_handwritten,  family = binomial(link = "logit"))
+m1 <- glmer(binrating ~ 1 + (1|character) + (1|participantid), data = data_handwritten,  family = binomial(link = "logit")) 
+summary(m1)
+a_hw <- anova(m0, m1)
+a_hw
+
+ci_intercept <- confint(m1)
+ci_intercept
+
+aprint_hw <- a_hw %>% 
+    select(AIC, BIC, Chisq, Df, `Pr(>Chisq)`) %>% 
+    rownames_to_column() %>% 
+    rename(model=rowname) %>% 
+    mutate(model = recode(model, "m0"="0 + (1|character) + (1|participantID)", 
+                                 "m1"= "1 + (1|character) + (1|participantID)")) %>% 
+    mutate( `Pr(>Chisq)` = as.character(signif(`Pr(>Chisq)`, digits=3)))
+  mstable <- xtable(aprint_hw, caption = paste0("Comparison between models with and without an intercept. The dependent variable is human ratings of the complexity of handwritten traditional characters relative to Oracle forms."), label = "tab:regtable_exp_hw")
+  print(mstable, file = here("tables", "tabs2_regtable_exp_hw.tex"), include.rownames = FALSE)
+```
+
+This tells us that for the handwritten condition, people's responses are significantly different from chance (p = 0.012) in the direction that we predicted.
+
+```{r frequentiststats_printed, include=TRUE}
+m0 <- glmer(binrating ~ 0 + (1|character) + (1|participantid), data = data_printed,  family = binomial(link = "logit"))
+m1 <- glmer(binrating ~ 1 + (1|character) + (1|participantid), data = data_printed,  family = binomial(link = "logit")) 
+summary(m1)
+a_printed <- anova(m0, m1)
+a_printed
+
+ci_intercept <- confint(m1)
+ci_intercept
+
+aprint_printed <- a_printed %>% 
+    select(AIC, BIC, Chisq, Df, `Pr(>Chisq)`) %>% 
+    rownames_to_column() %>% 
+    rename(model=rowname) %>% 
+    mutate(model = recode(model, "m0"="0 + (1|character) + (1|participantID)", 
+                                 "m1"= "1 + (1|character) + (1|participantID)")) %>% 
+    mutate( `Pr(>Chisq)` = as.character(signif(`Pr(>Chisq)`, digits=3)))
+
+  mstable <- xtable(aprint_printed, caption = paste0("Comparison between models with and without an intercept. The dependent variable is human ratings of the complexity of printed traditional characters relative to Oracle forms."), label = "tab:regtable_exp_printed")
+  print(mstable, file = here("tables", "tabs3_regtable_exp_printed.tex"), include.rownames = FALSE)
+
+```
+
+The effect for the printed condition is not significant (p = 0.43).
+
+And now for the Bayesian analyses
+
+```{r bayesianstats_handwritten, include=TRUE, cache=TRUE}
+#nchain <- 1 # for testing
+#niter <- 500 # for testing
+
+nchain <- 4 # for real run
+niter <- 4000 # for real run
+
+fit_handwritten <- brm( binrating ~ 1 + (1|character) + (1|participantid), family=bernoulli(), data = data_handwritten, chains = nchain, iter = niter ) 
+
+brms_tab_hw <- fixef(fit_handwritten) %>% as_tibble(rownames="NA") 
+ 
+brms_tab_hw
+
+```
+The 95% credibility interval on the intercept is [`r round(brms_tab_hw$Q2.5, 2)`, `r round(brms_tab_hw$Q97.5, 2)`]. Because this interval excludes zero, our hypothesis is supported. 
+
+```{r bayesianstats_printed, include=TRUE, cache=TRUE}
+
+fit_printed <- brm( binrating ~ 1 + (1|character) + (1|participantid), family=bernoulli(), data = data_printed, chains = nchain, iter = niter ) 
+
+brms_tab_printed <- fixef(fit_printed) %>% as_tibble(rownames="NA") 
+ 
+brms_tab_printed
+
+```
+
+The 95% credibility interval on the intercept is [`r round(brms_tab_printed$Q2.5, 2)`, `r round(brms_tab_printed$Q97.5, 2)`]. 
+
+## Conclusion
+
+The overall set of results suggests that traditional pictographic characters are a little more complex than their oracle counterparts. For handwritten characters, the frequentist test gives us a significant result and the Bayesian credibility interval excludes zero. For printed characters the effect is not significant but goes in the predicted direction. Importantly, we see no evidence at all that oracle characters are simpler in general than traditional characters. 

@@ -17,10 +17,13 @@ A complete folder with the same file structure can be found on [Zenodo](https://
 This folder contains all of our Python code for scraping, processing and evaluating our image datasets. Please refer to its README for details on how to run our pipeline.
 
 #### experiment
-This folder contains all of the materials for our behavioural experiment.
+This folder contains all of the materials for our behavioural experiment, including data and source code for experiment 
 
 #### figures
 This folder contains all of the figures for both the main paper and the supplementary materials.
+
+#### figures
+This folder contains tables presented in the supplementary materials.
 
 ## Notes
 
