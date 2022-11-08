@@ -1,0 +1,182 @@
+---
+title: "Descriptive complexity"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+Make descriptive complexity figure (Figure S16)
+
+```{r libraries}
+library(tidyverse)
+library(here)
+library(ggthemes)
+library(lme4)
+library(brms)
+library(RColorBrewer)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+library(xtable)
+library(dplyr)
+library(bayesplot)
+library(ropencc)
+library(showtext)
+library(ggimage)
+library(ggrepel)
+library(knitr)
+
+select <- dplyr::select
+showtext_auto()
+```
+
+
+```{r data, include=TRUE}
+
+# XXX tmp
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+
+suffix = "pad"
+
+dpath_svg <- here("data", "complexities", "descriptive_complexities.csv")
+
+periods <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified')
+periods_reverse <- c( 'Simplified', 'Traditional', 'Seal', 'Bronze', 'Oracle')
+printperiods <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified')
+periods_font <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified', 'SimSun', 'Hiragino')
+datasets <- c( 'hzy', 'traditional', 'casia', 'SimSun', 'Hiragino Sans GB')
+
+period_col_orig <- c("#ff0000", "#ffa500", "#008000", "#0000ff", "#800080")
+period_col_orig_reverse <- c("#800080", "#0000ff", "#008000", "#ffa500", "#ff0000")
+period_col <- c("#ff0000", "#ffa500", "#008000", "#0000ff", "#787878", "#787878")
+
+font_add("hiragino", "Hiragino Sans GB.ttc")
+
+chartheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) +
+            theme(axis.text.y = element_text("hiragino", NULL, NULL, NULL))
+
+mytheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) 
+
+theme_set(chartheme)
+```
+
+```{r loadds, include=TRUE}
+d_c <- read_csv(dpath_all) %>%
+  select(-...1) %>%
+  filter(scale_method==suffix) %>% 
+  rename(character =simplified_character, complexity=perimetric_complexity) 
+
+d_svg <- read_csv(dpath_svg) %>% 
+  select(-...1) %>%
+  rename("svglength" = "SVG description length") %>% 
+  left_join(d_c, by = c("period", "rendered_character", "dataset", "image_ID")) 
+
+d_svg <- d_svg %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>%
+  mutate(dataset= factor(dataset, levels=datasets, order=TRUE)) %>%
+  group_by(character) %>%
+  mutate(first = min(period)) %>% 
+  mutate(first_dataset = min(dataset)) %>% 
+  ungroup() 
+  
+script_counts_svg <-  d_svg %>% 
+  select(character, period, dataset, first) %>% 
+  unique() %>% 
+  group_by(period, dataset, first) %>% 
+  summarize(n=n(), .groups = "drop") %>% 
+  arrange(first)
+
+kable(script_counts_svg)
+  
+d_svg <- d_svg %>%   
+  filter(first <= "Traditional") %>%  # drop 35 characters in "simplified stream"
+ filter( !(dataset %in% c("Hiragino Sans GB", "SimSun")) | first == "Traditional") %>%  # only keep Traditional stream for fonts
+  mutate(first = case_when(dataset == "Hiragino Sans GB" ~ "Hiragino", 
+                          dataset == "SimSun" ~ "SimSun",
+                          TRUE ~ as.character(first))) %>% 
+  mutate(first = factor(first, levels=periods_font, order=TRUE)) 
+```
+
+First look at relationship between descriptive complexity and perimetric complexity
+
+```{r svg_vs_pc, include=TRUE}
+svgplot <- d_svg %>% 
+  mutate(period = if_else(first %in% c("SimSun", "Hiragino"), first, period)) %>% 
+  filter(!first %in%  c("SimSun", "Hiragino")) %>% 
+  mutate(period = factor(period, levels=periods_reverse, order=TRUE)) %>%
+  mutate(periodorder = case_when(period == "Oracle" ~ 5,
+                                 period == "Bronze" ~ 4,
+                                 period == "Seal" ~ 3,
+                                 period == "Traditional" ~ 1,
+                                 period == "Simplified" ~ 2,
+                                 )) %>% 
+  mutate(period = recode(period, Oracle = "Oracle (r = 0.86)", Bronze = "Bronze (r = 0.87)", Seal = "Seal (r = 0.87)", Traditional = "Trad. (r = 0.84)", Simplified = "Simp. (r = 0.88)")) %>% 
+  arrange(periodorder) %>%  # so layers plotted in order
+  ggplot(aes(x=complexity, y=svglength, color=period)) +
+  geom_point(size = 0.01) +
+  geom_smooth(method="lm", se=FALSE)  +
+  xlab("perimetric complexity") +
+ scale_color_manual(values = period_col_orig_reverse) + 
+ labs(y ='descriptive complexity') +
+ plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+ theme(plot.tag = element_text(size = 9))  +
+ theme(legend.title=element_blank(), 
+    legend.text=element_text(size=7),
+    legend.position = "bottom") +
+  guides(color=guide_legend(reverse = TRUE, nrow=2,byrow=TRUE, keyheight = unit(0.1, 'cm')))
+
+legend_svg <- get_legend(svgplot) 
+svg_nol <- svgplot + theme(legend.position = 'none')
+
+svg <- svg_nol + legend_svg + plot_layout(ncol = 1)
+```
+
+Now look at changes in descriptive complexity over time
+
+```{r svg_change, include=TRUE}
+dsumm <- d_svg %>%
+  group_by(character, period, first) %>%
+  dplyr::summarize(svglength=median(svglength), .groups="drop") %>%
+  mutate(period = factor(period, levels=periods, order=TRUE)) 
+
+dmeans <- dsumm %>%
+  filter(period %in% printperiods) %>% 
+  group_by(period, first) %>%
+  dplyr::summarize( n=sum(!is.na(svglength)), sd = sd(svglength, na.rm=TRUE), se=sd/sqrt(n), svglength=mean(svglength, na.rm=TRUE), .groups="drop")  %>%
+  group_by(first) %>%
+  mutate(n = mean(n)) 
+
+dmmax <- 1701
+dmmin <- 600
+scalefactor <- 600
+
+fig2 <- dmeans %>%
+  mutate(period = recode(period, Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  ggplot(aes(x=period, y=svglength, group=first, color=first,size=n))+
+  geom_line(alpha = 0.7) +
+  geom_point(alpha = 1.0, size=1) +
+  geom_errorbar(aes(ymin=svglength-se, ymax=svglength+se), size = 0.5 , width=0.1) +
+  scale_color_manual(values = period_col, guide='none') +
+  scale_size_continuous(range = c(dmmin/scalefactor,dmmax/scalefactor), name="count", breaks = c(700,1000, 1300, 1600), limits = c(10, 1701)) +
+  annotate(geom="text", x = 4, y = 3550,label = "SimSun" , color = "grey", size = 2.5) +
+  annotate(geom="text", x = 4, y = 2900,label = "Hiragino" , color = "grey", size = 2.5) +
+  labs(x = 'script', y ='descriptive complexity') +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9)) 
+
+svgpatch <- { svg_nol | fig2 } + 
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9)) 
+  
+svgfinal <- svgpatch + legend_svg + plot_layout(ncol = 2, nrow = 2) +
+  plot_layout(widths = c(1,1),  heights = unit(c(2.5, 1), c('in', 'null')) ) +
+  theme(plot.tag = element_blank()) 
+
+ggsave(here("figures", "figs18_descriptivecomplexity.pdf"),  plot = svgfinal, width =  7.08661,height = 3.5)
+
+svgfinal 
+```
