@@ -1,0 +1,911 @@
+---
+title: "Main analyses and figures"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+This notebook contains analyses reported in Han, Kelly, Winters & Kemp, Simplification is not dominant in the evolution of Chinese characters. Before running this notebook please replace the `data` folder in the GitHub repository with the complete data folder downloaded from Zenodo.
+
+```{r libraries}
+library(tidyverse)
+library(here)
+library(ggthemes)
+library(lme4)
+library(brms)
+library(RColorBrewer)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+library(xtable)
+library(dplyr)
+library(bayesplot)
+library(ropencc)
+library(showtext)
+library(ggimage)
+library(ggrepel)
+library(knitr)
+
+select <- dplyr::select
+showtext_auto()
+```
+
+  
+```{r data, include=TRUE}
+
+# Path to the main complexity file 
+dpath_all <- here("data", "complexities", "all_complexities.csv")
+# XXX tmp
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+
+# all images are scaled to a standard size and then padded (surrounded by whitespace on all sides)
+suffix = "pad"
+
+# file specifying number of components in each character
+dpath_ncomp <-  here("data", "ccd.csv")
+# the CLD, which includes frequencies
+dpath_cld  <-  here("data", "cld.csv")
+
+# gif complexities
+dpath_gif  <-  here("data", "complexities", "zdic_stroke_gif_complexities.csv")
+
+# Files relevant to the trade-off between simplicity and distinctiveness
+dpath_tradeoff_bincomplexity <-  here("data", "distinctiveness", "bin_complexity_samples.csv")
+dpath_tradeoff_bindistinct <-  here("data", "distinctiveness", "bin_distinctiveness_samples.csv")
+
+# the code mostly refers to "periods" rather than "scripts", but the paper refers to "5 scripts" rather than "5 periods"
+periods <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified')
+periods_font <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified', 'SimSun', 'Hiragino')
+
+datasets <- c( 'hzy', 'traditional', 'casia', 'SimSun', 'Hiragino Sans GB')
+
+period_col <- c("#ff0000", "#ffa500", "#008000", "#0000ff", "#787878", "#787878")
+
+font_add("hiragino", "Hiragino Sans GB.ttc")
+
+chartheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) +
+            theme(axis.text.y = element_text("hiragino", NULL, NULL, NULL))
+
+mytheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) 
+
+theme_set(chartheme)
+
+```
+
+First load the key dataframes. Our analyses consider only characters that appear in the CLD.
+
+```{r loadds, include=TRUE}
+
+# CLD: we focus on characters included in this resource
+d_cld <-  read_csv(dpath_cld) %>%
+  # we want C1Frequency which is proportional to times that a character appears either alone or in another word
+  select(Character, C1Type, C1Frequency, AdjustedC1Frequency, Strokes) %>%
+  rename(character= Character,rawfrequency=C1Frequency, frequency=AdjustedC1Frequency, stroke_count=Strokes) %>%
+  mutate(C1Type = factor(C1Type, levels = c("Picto","PicLog", "PicSyn", "PicPho", "Other"))) %>%
+  mutate(C1Type= recode(C1Type, Picto= "pictographic", PicLog= "pictologic", PicSyn = "pictosyn.", PicPho = "pictophon.", Other="other")) %>% 
+  mutate(logfrequencyraw = log10(rawfrequency), 
+         logfrequencyrawscale = scale(logfrequencyraw)[,1],  
+         logfrequency = log10(frequency), 
+         logfrequencyscale = scale(logfrequency)[,1] )
+
+d_cld_freqs <-  d_cld %>% 
+  select(character, frequency, logfrequency, logfrequencyscale)
+
+# the Simplified data set includes many punctuation marks but they aren't included in our analysis because we only consider characters in the CLD 
+
+d_c <- read_csv(dpath_all) %>%
+  filter(scale_method ==suffix) %>% 
+  rename(character =simplified_character, complexity= perimetric_complexity) %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>%
+  mutate(dataset= factor(dataset, levels=datasets, order=TRUE)) %>%
+  group_by(character) %>%
+  mutate(first = min(period)) %>% 
+  mutate(first_dataset = min(dataset)) %>% 
+  filter(character %in% d_cld$character) 
+
+# pull out median or representative closest to median (break ties by preferring simpler characters)
+d_c_meds <- d_c %>% 
+  group_by(period, character) %>% 
+  mutate(medn = median(complexity), medndiff = abs(complexity - medn), minmedndiff=min(medndiff)) %>% 
+  ungroup() %>% 
+  filter( (round(minmedndiff,3) == round(medndiff,3) ) & (round(complexity,3) <= round(medn, 3)) ) %>% 
+  # pick one representative per period if there are several with same distance from median complexity
+  distinct(across(c("character", "period")), .keep_all = TRUE) 
+
+# number of components
+d_ncomp <-  read_csv(dpath_ncomp, name_repair = "unique") %>%
+  select(-...1) %>%
+  pivot_longer(!(Character)) %>%
+  group_by(Character) %>%
+  dplyr::summarize(numcomp=sum(value), .groups="drop") %>%
+  rename(character=Character)
+
+# data frame including mediancomplexity for each character in each period, numcomp and C1Type
+dsumm <- d_c %>%
+  group_by(character, rendered_character, period, dataset, first) %>%
+  dplyr::summarize(complexity=median(complexity), pixcomplexity=median(pixel_complexity), .groups="drop") %>%
+  left_join(d_cld, by="character") %>%
+  left_join(d_ncomp, by="character") %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) 
+
+# the font characters included for Traditional and Simplified scripts are chosen to match the characters in the handwritten datasets. We'll filter out everything except the traditional stream for plotting in Figure 2.
+
+d_font <- dsumm %>%  
+  filter(dataset %in% c("Hiragino Sans GB", "SimSun")) %>% 
+  filter(first == "Traditional") %>% 
+  mutate(first= case_when(dataset == "Hiragino Sans GB" ~ "Hiragino", 
+                          dataset == "SimSun" ~ "SimSun" ))
+
+dsumm <- dsumm %>%  
+  filter(!(dataset %in% c("Hiragino Sans GB", "SimSun"))) 
+```
+
+### Character counts for complexity analysis (left part of Table S1)
+
+```{r charcounts, include=TRUE}
+
+script_counts <-  d_c %>% 
+  select(character, period, dataset, first) %>% 
+  unique() %>% 
+  group_by(period, dataset, first) %>% 
+  summarize(n=n(), .groups = "drop") %>% 
+  arrange(first)
+
+kable(script_counts)
+
+images_per_char <- d_c %>% 
+  group_by(character, period, dataset) %>% 
+  summarize(n = n())
+
+nchar_total <- length(unique(d_c$character))
+total_images <- nrow(d_c)
+hzy_images <- nrow(d_c %>% filter(dataset=="hzy"))
+max_image_per_char <- max(images_per_char$n)
+
+```
+
+Total number of characters is `r nchar_total`.
+Total number of images is `r total_images`.
+Total number of images from hanziyuan is `r hzy_images`.
+We have up to `r max_image_per_char` images per character per script.
+
+###  Example characters in Fig 1: 山, 雨, 车, 龟 
+
+Make Figures 1 and S1. The character images included in these figures are stored in `figures/fig1_pieces` and were generated outside of this notebook.
+
+```{r fig1plot, include=TRUE}
+
+egs = c("山", "雨", "车", "龟")
+eglabs = c("山 [mountain]", "雨 [rain]",  "車/车 [vehicle]", "龜/龟 [turtle]") 
+
+dsummegs <- dsumm %>% 
+  filter(character %in% egs) %>% 
+  mutate(character = factor(character, levels=egs)) %>% 
+  mutate(demopathprefix = case_when( period == "Traditional" ~ "traditional_handwritten", 
+                                period == "Simplified" ~  "simplified_handwritten", 
+                                TRUE ~ "hanziyuan" 
+                              ))  %>% 
+  mutate(skeldemopathprefix = case_when( period == "Traditional" ~ "traditional_handwritten_skel", 
+                                period == "Simplified" ~  "simplified_handwritten_skel", 
+                                TRUE ~ "hanziyuan_skel" 
+                              ))  %>% 
+  mutate(imageloc =  here("figures", "fig1_pieces", demopathprefix, paste0(.$character, "_", .$period, ".png")))  %>% 
+  mutate(skelimageloc =  here("figures", "fig1_pieces", skeldemopathprefix, paste0(.$character, "_", .$period, ".png"))) 
+           
+
+egplot_text <- data.frame(
+  label = c("Complexity decreases", "Complexity increases", "", ""),
+  character = factor(eglabs, levels=eglabs),
+  x     = 3,
+  y     = 425 
+)
+
+blank_data <- data.frame(character= c("山", "山", "雨", "雨","车", "车","龟","龟"), 
+                         x = 0, y = c(150, 315, 150, 315,180,430, 180,430)) %>% 
+mutate(character = factor(character, levels=egs)) %>% 
+mutate(character= recode(character, 山 = "山 [mountain]", 
+                                   雨 = "雨 [rain]", 
+                                   车 = "車/车 [vehicle]",
+                                   龟 = "龜/龟 [turtle]")) 
+
+egplot <- dsummegs %>% 
+  mutate(period = recode(period, Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  mutate(character= recode(character, 山 = "山 [mountain]", 
+                                   雨 = "雨 [rain]", 
+                                   车 = "車/车 [vehicle]",
+                                   龟 = "龜/龟 [turtle]")) %>% 
+  ggplot(aes(period, complexity, group=character)) +
+  geom_point() +
+  geom_line() +
+  geom_blank(data = blank_data, aes(x = x, y = y)) + 
+  facet_wrap(~character, scales = "free_y") +
+  geom_image( aes(x=period, y=0 + complexity, image = imageloc), 
+              size = 0.15, by = "height", asp = (6+0.5)/4
+              ) +
+  xlab("script") +
+  theme( strip.background = element_blank() )
+
+egplot
+
+ggsave(here("figures", "fig1_example_changes.pdf"), plot = egplot, width = 6,height = 4)
+
+skelplot <- dsummegs %>% 
+  mutate(period = recode(period, Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  mutate(character= recode(character, 山 = "山 [mountain]", 
+                                   雨 = "雨 [rain]", 
+                                   车 = "車/车 [vehicle]",
+                                   龟 = "龜/龟 [turtle]")) %>% 
+  ggplot(aes(period, 0, group=character)) +
+  facet_wrap(~character) +
+  geom_image( aes(x=period, y=0, image = skelimageloc), 
+              size = 0.2, by = "width", asp = (6+4)/2    # had to adjust by hand
+              ) +
+  
+  theme(
+  strip.background = element_blank(),
+  #strip.text.x = element_blank(),
+  axis.line.y = element_blank()
+  )  +
+  scale_y_discrete(labels = NULL, breaks = NULL) + labs(y = "") +
+  xlab("script") 
+
+skelplot
+
+ggsave(here("figures", "figs1_example_changes_skel.pdf"), plot = skelplot, width = 6,height = 2)
+
+```
+
+### Changes in complexity over time
+
+Make Figure 2
+
+```{r fig2a, include=TRUE, fig.height=4, fig.width=6}
+dmeans <- dsumm %>%
+  bind_rows(d_font) %>% 
+  mutate(first= factor(first, levels=periods_font, order=TRUE)) %>%
+  filter(first != "Simplified") # drop the "Simplified stream" (the 35 characters that appear first in the Simplified script)
+
+plot_complexity_change <- function(dmeans) { 
+  dmeans <- dmeans %>% 
+    mutate(first= factor(first, levels=periods_font, order=TRUE)) %>%
+    filter(period %in% periods) %>% 
+    group_by(period, first) %>%
+    dplyr::summarize( n=sum(!is.na(complexity)), sd = sd(complexity, na.rm=TRUE), se=sd/sqrt(n), complexity=mean(complexity, na.rm=TRUE), .groups="drop")  %>%
+    group_by(first) %>%
+    mutate(n = mean(n)) 
+
+  dmmax <- 1701
+  dmmin <- 600
+  scalefactor <- 600
+
+  fig2 <- dmeans %>%
+    mutate(period = recode(period, Traditional= "Trad.", Simplified = "Simp.")) %>% 
+    ggplot(aes(x=period, y=complexity, group=first, color=first,size=n))+
+    geom_line(alpha = 0.7) +
+    geom_point(alpha = 1.0, size=1) +
+    geom_errorbar(aes(ymin=complexity-se, ymax=complexity+se), size = 0.5 , width=0.1, size = 0.01) +
+    scale_size_continuous(range = c(dmmin/scalefactor,dmmax/scalefactor), name="count", breaks = c(700, 1000, 1300,1600), limits = c(10, 1701)) +
+    #theme(legend.position = c(0.15, 0.82)) +
+    xlab("script")
+}  
+
+fig2_tradstream <- plot_complexity_change(dmeans) +
+    scale_color_manual(values = period_col, guide='none')  +
+    annotate(geom="text", x = 3.4, y = 412,label = "SimSun" , color = "grey", size = 2.5) +
+    annotate(geom="text", x = 3.4, y = 403,label = "Hiragino" , color = "grey", size = 2.5) 
+
+fig2_tradstream
+
+ggsave(here("figures", "fig2_complexitythroughtime.pdf"), plot = fig2_tradstream, width = 3.4252,height = 2.8)
+
+```
+
+### Behavioral Experiment
+
+Make Figure 3c
+
+```{r humanfig, include=TRUE, fig.height=4, fig.width=6}
+
+dpathfont <- here("experiment", "data", "data_pictographic_ratings_oracle_printedtraditional.csv")
+dpathhw <- here("experiment", "data", "data_pictographic_ratings_oracle_hwtraditional.csv")
+
+dall <- read_csv(dpathfont) %>% 
+  bind_rows(read_csv(dpathhw)) %>% 
+  mutate(origcondition = condition) %>% 
+  mutate(condition = if_else(condition=="traditional", "printed", "handwritten"))
+
+dexp <- dall %>%   
+ filter(controlscore == 5) %>%
+ mutate(binrating=rating>2.5) %>%
+ mutate(rating = rating - 2.5) %>%
+ filter(!str_detect(character, "^control_")) %>% 
+ group_by(condition, character) %>% 
+ mutate(cmean = mean(rating)) 
+
+cc = converter(S2T)
+
+expsumm <- dexp %>% 
+  select(character, condition, cmean) %>% 
+  unique() %>% 
+  group_by(condition) %>% 
+  mutate(r = rank(cmean)) %>% 
+  mutate(plotlab = if_else(character %in% c("山", "车", "雨", "龟"), character, '')) %>% 
+  mutate(plotlab =  run_convert(cc, plotlab) ) 
+
+expsummnolab <- expsumm %>% 
+  filter(plotlab == "")
+
+expsummlab <- expsumm %>% 
+  filter(plotlab != "")
+
+humanfig <- expsummnolab %>% 
+  ggplot(aes(condition, cmean, label=plotlab)) +
+  geom_violin() +
+  geom_hline(yintercept=0, color="black", size=0.1) +
+  stat_summary(fun = mean, geom="crossbar", fatten=0.5) +
+  geom_point(alpha=1.0, width=0.2, colour="gray", size=0.1, position = position_jitter(seed = 0))+
+  geom_point(data = expsummlab, alpha=1.0, width=0.2, colour="gray", size=0.1)+
+  geom_text_repel(data = expsummlab, direction = "y", size=2,  box.padding = 0.1, nudge_y = 0.001)+
+  stat_summary(fun.data=mean_se, geom="errorbar", width=0.15)+
+  ylim(-2.0, 2.5) +
+  ylab('complexification (human rating)')
+
+```
+
+### Character type, Number of Components
+
+Make Figures 3a and 3b
+
+```{r fig3, include=TRUE, fig.height=4, fig.width=6}
+d_trad_vs_ob <- dsumm %>%
+  select(character, rendered_character, period, first, complexity, C1Type, numcomp) %>% 
+  pivot_wider(names_from=period, values_from=complexity) %>%
+  mutate(complexification= Traditional - Oracle) %>%
+  select(character, C1Type, complexification, numcomp) 
+
+fig3a <- d_trad_vs_ob %>%
+  filter(numcomp <= 5) %>%
+  ggplot(aes(x=numcomp, y=complexification, group=numcomp))+
+  geom_violin(fill="gray80", draw_quantiles = c(0.5)) +
+  geom_hline(yintercept=0, color="black", size=0.1) +
+  xlab("Number of components")
+
+fig3b <- d_trad_vs_ob %>%
+  ggplot(aes(x=C1Type, y=complexification, group=C1Type))+
+  geom_violin(fill="gray80", draw_quantiles = c(0.5)) +
+  geom_hline(yintercept=0, color="black", size=0.1) +
+  xlab("Character type") +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ')')  +
+  theme(plot.tag = element_text(size = 9)) 
+
+patchl <- fig3b / fig3a +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  +
+  theme(plot.tag = element_text(size = 9)) 
+
+patchlprint <- patchl + 
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  +
+  theme(plot.tag = element_text(size = 9)) 
+
+patch2 <- patchl  | humanfig  
+
+patch2print <- patch2 + 
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9)) +
+  plot_layout(widths=c(2,1))
+
+patch2print 
+
+ggsave(here("figures", "fig3.pdf"), plot = patch2print, width = 6.0, height = 2.8)
+
+```
+
+
+##  Distinctiveness
+
+Make Figures 6 and S13. See `near_neighbours.Rmd` for code that creates Fig S12
+
+```{r distinct, eval=TRUE}
+  
+d_dim_all_withfont <-  read_csv(here('data', 'distinctiveness', 'all_distinctiveness.csv'))  %>% 
+  select(-...1) %>% 
+  rename(character = simplified_character, complexity = perimetric_complexity) %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE))  %>% 
+  mutate(dataset= factor(dataset, levels=datasets, order=TRUE)) %>%
+  group_by(character) %>%
+  mutate(first = min(period)) %>% 
+  mutate(first_dataset = min(dataset)) %>% 
+  ungroup() 
+
+d_dim_all <- d_dim_all_withfont %>% 
+  #strip fonts
+  filter(!(dataset %in% c("SimSun", "Hiragino Sans GB"))) 
+  
+distinct_summ_withfont <- d_dim_all_withfont %>% 
+  group_by(period, dataset) %>% 
+  summarize(n = n(), complexity = median(complexity), distinctiveness = median(distinctiveness))
+
+complexity_only <- d_dim_all %>% 
+  select(character, period, dataset, complexity)
+
+d_dim_streams <-  read_csv(here('data', 'distinctiveness', 'all_distinctiveness_streamed.csv'))  %>% 
+  rename(character = simplified_character, first = period_stream) %>% 
+  left_join(complexity_only, by = c("character", "period", "dataset")) %>% 
+  left_join(d_cld_freqs, by = "character") %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>% 
+  filter(first != "Simplified") %>% # drop the "simplified stream" (ie the 35 characters that only appear in the simplified dataset) %>% 
+  filter( !(dataset %in% c("Hiragino Sans GB", "SimSun")) | first == "Traditional") %>%  # only keep Traditional stream for fonts
+  mutate(first= case_when(dataset == "Hiragino Sans GB" ~ "Hiragino", 
+                          dataset == "SimSun" ~ "SimSun",
+                          TRUE ~ first)) %>% 
+  mutate(first= factor(first, levels=periods_font, order=TRUE)) 
+
+# counts for distinctiveness streams (right part of Table S1)
+
+script_counts_distinctiveness <-  d_dim_streams %>% 
+  select(character, period, dataset, first) %>% 
+  unique() %>% 
+  group_by(period, dataset, first) %>% 
+  summarize(n=n(), .groups = "drop") %>% 
+  arrange(first)
+
+kable(script_counts_distinctiveness)
+
+
+blank_data_d <- data.frame(period= periods,  x = 30, y =185) %>% 
+  mutate(period = ordered(period, levels = periods))
+
+fig_d <- d_dim_all %>% 
+  ggplot(aes(x=complexity, y=distinctiveness)) +
+  geom_point(size = 0.01, aes(colour=period))  +
+  geom_smooth(method="lm", size = 0.5)  +
+  facet_wrap(~period) +
+  ylab("distinctiveness") +
+  stat_cor(
+    aes(label = ..r.label..),
+    cor.coef.name='r',
+    label.x.npc = 0.225,
+    label.y.npc = 1.0,
+    size = 2.0 
+  ) + 
+  geom_blank(data = blank_data_d, aes(x = x, y = y)) + 
+  scale_x_continuous(breaks = c(10,30,50)) +
+  #plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9)) +
+  scale_color_manual(values = period_col, guide='none') 
+ 
+fig_d_change <- d_dim_all %>% 
+  mutate(period = recode(period, Bronze = "Brz.", Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  ggplot(aes(x=period, y=distinctiveness)) +
+  geom_violin(fill="gray80", draw_quantiles = c(0.5)) +
+  ylab("distinctiveness") +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9)) +
+  xlab("script")
+  
+dmeans <- d_dim_streams %>% 
+  group_by(period, first) %>% 
+  dplyr::summarize( n=n(), sd = sd(complexity), sdd = sd(distinctiveness), se=sd/sqrt(n), sed = sdd/sqrt(n), complexity=mean(complexity), distinctiveness=mean(distinctiveness), .groups="drop")  
+
+dmmax <- 1701
+dmmin <- 600
+scalefactor <- 600
+
+fig_dstream <- dmeans %>%
+  mutate(period = recode(period, Bronze = "Brz.", Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  ggplot(aes(x=period, y=distinctiveness, group=first, color=first,size=n))+
+  geom_line(alpha = 0.7) +
+  geom_point(alpha = 1.0, size=1) +
+  geom_errorbar(aes(ymin=distinctiveness-sed, ymax=distinctiveness+sed), size = 0.5 , width=0.1) +
+  #facet_wrap(~first) +
+  scale_color_manual(values = period_col, guide='none') +
+  scale_size_continuous(range = c(dmmin/scalefactor,dmmax/scalefactor), name="count", breaks = c(700,1000, 1300, 1600), limits = c(10, 1701))  +
+  xlab("script") +
+  annotate(geom="text", x = 5.3, y = 132.2,label = "S" , color = "grey", size = 2.5) +
+  annotate(geom="text", x = 5.3, y = 128.2,label = "H" , color = "grey", size = 2.5) 
+
+dprint <- { fig_d_change | fig_dstream  } +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9))  +
+  plot_layout(widths=c(5,6))
+
+dprint
+
+ggsave(here("figures","fig6_distinctiveness_changes.pdf"), plot = dprint, width = 6,height = 2.5)
+
+# Fig S13: distinctiveness, complexity. time in one plot
+
+dctdata <- d_dim_streams %>% 
+  filter(first == 'Oracle') %>% 
+  filter(period == "Oracle" | period == "Traditional") %>% 
+  select(character, period, complexity, distinctiveness) %>% 
+  pivot_wider(names_from=c(period), values_from=c(complexity, distinctiveness)) %>% 
+  mutate(complexitydiff = complexity_Traditional - complexity_Oracle, distinctivenessdiff = distinctiveness_Traditional - distinctiveness_Oracle)
+
+dctplot <- dctdata %>% 
+  ggplot(aes(x=complexitydiff, y=distinctivenessdiff)) +
+  stat_smooth(method = "lm") +
+  geom_point(size = 0.1)  +
+  ylab("Traditional - Oracle [distinctiveness]")+
+  xlab("Traditional - Oracle [complexity]")+
+  stat_cor( aes(label = ..r.label..), cor.coef.name='r') 
+dctplot
+
+ggsave(here("figures", "figs13_distinctiveness_complexity_changes.pdf"), plot = dctplot,  width=3,height = 3)
+```
+
+##  Tradeoff between complexity and distinctiveness
+
+```{r complexity_distinct_tradeoff}
+
+d_tr_c <- read_csv(dpath_tradeoff_bincomplexity) 
+d_tr_d <- read_csv(dpath_tradeoff_bindistinct) 
+
+plot_tradeoff <- function(d_tr) {
+  plot_dc <- d_tr %>% 
+    mutate(script= factor(period, levels=periods, order=TRUE)) %>%
+    ggplot(aes(x = sample_average_complexity, y=sample_average_distinctiveness, color = script)) +
+    geom_point(size=0.1) +
+    scale_color_manual(values = period_col, guide="none")  +
+    xlab('sample complexity')  +
+    ylab('sample distinctiveness')  +
+    theme(plot.tag = element_text(size = 9)) 
+}
+
+plot_dc_c <- plot_tradeoff(d_tr_c)
+plot_dc_d <- plot_tradeoff(d_tr_d)
+
+dprint <- { fig_d | plot_dc_c | plot_dc_d} +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ') ')  + 
+  theme(plot.tag = element_text(size = 9))+ 
+  plot_layout(widths=c(1.25,1,1))
+
+dprint
+ggsave(here("figures","fig5_distinctiveness_tradeoff.pdf"), plot = dprint, width = 7,height = 2.5)
+```
+
+##  Frequency
+
+Figures 4 and S9 are generated by `Figure 4.ipynb`. Here we plot level curves of Figure 4.
+
+```{r frequency, include=TRUE}
+
+complexity_freq <- dsumm %>% 
+  filter(first == 'Oracle') %>% 
+  mutate(freqbin_true= -floor(log10(frequency))) %>% 
+  # to avoid small groups at extremes of frequency scale
+  mutate(freqbin = case_when(freqbin_true <= -4 ~ -4,
+                             freqbin_true >= 1  ~ 1,
+                             TRUE ~ freqbin_true)) %>% 
+  group_by(period, freqbin) %>% 
+  dplyr::summarize(complexity = mean(complexity), n = n()) %>% 
+  drop_na()
+  
+distinct_freq <- d_dim_streams  %>% 
+  filter(first == 'Oracle') %>% 
+  mutate(freqbin_true= -floor(log10(frequency))) %>% 
+  # to avoid small groups at extremes of frequency scale
+  mutate(freqbin = case_when(freqbin_true <= -4 ~ -4,
+                             freqbin_true >= 1  ~ 1,
+                             TRUE ~ freqbin_true)) %>% 
+  group_by(period, freqbin) %>% 
+  dplyr::summarize(distinctiveness= mean(distinctiveness), n = n()) 
+
+
+wf <- wireframe(complexity ~ freqbin * period, 
+          data = complexity_freq,
+          screen = list(z = 45, x=-60),
+          )
+
+freqplot_complex <- complexity_freq %>% 
+  mutate(freqbin = -freqbin) %>% 
+  ggplot(aes(x=period, y=complexity, group=freqbin, color=freqbin)) +
+  geom_line() +
+  xlab("script")
+freqplot_complex
+
+freqplot_distinct <- distinct_freq %>% 
+  mutate(freqbin = -freqbin) %>% 
+  ggplot(aes(x=period, y=distinctiveness, group=freqbin, color=freqbin)) +
+  geom_line() +
+  xlab("script")
+freqplot_distinct
+```  
+
+
+##  Alternative complexity measures
+
+This section generates Figure S15. See `descriptivecomplexity.Rmd` for code that generates Figure S16.
+
+```{r alternative_complexity}
+
+d_sc <- dsumm %>% 
+  filter(period=="Simplified") %>% 
+  mutate(pixcomplexity=stroke_count) 
+
+d_gif <-  read_csv(dpath_gif) %>% 
+  right_join(d_sc, by = "rendered_character") %>% 
+  mutate(pixcomplexity=stroke_gif_complexity) 
+  
+myscatter <- function(d) {
+  pixcomplexity <- d %>% 
+    ggscatter(x = "complexity", y = "pixcomplexity",
+    size = 0.5,
+    add = "reg.line",  
+    add.params = list(color = "blue", fill = "lightgray"), 
+    ggtheme = mytheme
+  ) +
+  stat_cor(
+    aes(label = ..r.label..),
+    label.x = 3,
+    cor.coef.name='r'
+  )  + #+ coord_fixed(ratio=2)
+  xlab('perimetric complexity') 
+    
+  return(pixcomplexity)
+}    
+
+pixcomplexity  <- myscatter(dsumm) +
+  ylab('pixel-based complexity') 
+
+strokecount<- myscatter(d_sc) +
+  ylab('stroke count') 
+
+gifcomplexity<- myscatter(d_gif) +
+  ylab('writing time') 
+
+altcomplex <- pixcomplexity + strokecount + gifcomplexity +
+  plot_annotation(tag_levels = c('a'), tag_suffix = ')') 
+
+altcomplex
+
+ggsave(here("figures", "figs15_alt_complexity_measures.pdf"), plot = altcomplex,  width=7.08661,height = 2.8)
+```
+
+## Statistical analyses
+
+First run analyses of changes in complexity over time
+
+```{r brms_main_fit, cache=TRUE}
+
+# Based in part on
+#https://github.com/paul-buerkner/monotonic-effects-paper/blob/master/monotonic_effects.Rmd
+
+sdif_coding <- function(x) {
+  x <- as.factor(x)
+  contrasts(x) <- MASS::contr.sdif(levels(x))
+  x
+}
+
+dsumm_brm <- dsumm %>%
+  mutate(periodl = as.numeric(period)) %>%
+  mutate(periodc = sdif_coding(factor(period))) %>%
+  select(character, period, periodl, periodc, complexity, first, logfrequency, logfrequencyscale, logfrequencyraw, logfrequencyrawscale)
+
+nchain <- 1 # for testing
+nchain <- 4 # for paper
+
+fit3 <- brm( complexity ~ periodc + (1 + period| character), data = dsumm_brm, chains = nchain)
+```
+
+```{r brms_main_out, cache=TRUE}
+
+pme3 <- plot(conditional_effects(fit3), plot = FALSE, ask = FALSE)
+
+coefnames <- fixef(fit3) %>% rownames()
+coefsamples <- fixef(fit3, summary=FALSE, pars=coefnames[-1]) %>%
+  as_tibble() %>%
+  rename("Bronze-Oracle"=periodcBronzeMOracle, "Seal-Bronze"=periodcSealMBronze, "Traditional-Seal"=periodcTraditionalMSeal, "Simplified-Traditional"=periodcSimplifiedMTraditional)
+postplot <- mcmc_areas(coefsamples)
+
+ggsave(here("analysis","output", "bayesreg_period.pdf"), plot = postplot,  width=4,height = 2.8)
+
+tableout<- xtable(fixef(fit3), caption = "Coefficients for period regression" )
+print(tableout, file = here("analysis", "output", paste0("coeftable_periodregression.tex")))
+
+```
+
+
+### Frequency and complexity
+
+```{r brms_freq_fit, cache=TRUE}
+dsumm_brm_freq <- dsumm_brm %>%
+  filter(first=="Oracle") %>%   # only characters in Oracle stream
+  filter(!is.na(logfrequency)) %>%
+  mutate(rarity= -logfrequencyscale) %>%
+  mutate(rarityraw= -logfrequencyrawscale) %>%
+  mutate(periodc = sdif_coding(factor(period)))
+
+# adjusted frequency is the default
+for (freqsuffix in c("", "raw")) {
+  dsumm_forstats <- dsumm_brm_freq %>%
+    mutate(rarity = !!as.symbol(paste0("rarity", freqsuffix)))
+
+  dsumm_forstats_tradonly <- dsumm_forstats %>%
+    filter(period %in% c("Oracle", "Traditional")) %>%
+    mutate(periodc = sdif_coding(factor(period)))
+
+  assign(paste0("fit3_freq", freqsuffix), brm( complexity ~ periodc + rarity + periodc*rarity + (1 + period| character), data = dsumm_forstats, chains = nchain) )
+
+  assign(paste0("fit3_freq_tradonly", freqsuffix), brm( complexity ~ periodc + rarity + periodc*rarity + (1 + period| character), data = dsumm_forstats_tradonly, chains = nchain) )
+}
+```
+
+```{r brms_freq_out}
+
+for (freqsuffix in c("", "raw")) {
+  fit3freq_thissuffix <- get(paste0("fit3_freq", freqsuffix))
+  fit3freq_tradonly_thissuffix  <-  get(paste0("fit3_freq_tradonly", freqsuffix))
+
+  coefnames <- fixef(fit3freq_thissuffix) %>% rownames()
+  coefsamples <- fixef(fit3freq_thissuffix, summary=FALSE, pars=coefnames[-1]) %>%
+    as_tibble() %>%
+    rename("Bronze-Oracle"=periodcBronzeMOracle,
+           "Seal-Bronze"=periodcSealMBronze,
+           "Traditional-Seal"=periodcTraditionalMSeal,
+           "Simplified-Traditional"=periodcSimplifiedMTraditional,
+           "(Bronze-Oracle):rarity"="periodcBronzeMOracle:rarity",
+           "(Seal-Bronze):rarity"="periodcSealMBronze:rarity",
+           "(Traditional-Seal):rarity"="periodcTraditionalMSeal:rarity",
+           "(Simplified-Traditional):rarity"="periodcSimplifiedMTraditional:rarity",
+           )
+
+  postplot <- mcmc_areas(coefsamples)
+
+  ggsave(here("analysis","output", paste0("bayesreg_freq", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
+
+  tableout<- xtable(fixef(fit3freq_thissuffix), caption = "Coefficients for frequency regression" )
+  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression", freqsuffix, ".tex")))
+
+  coefnames <- fixef(fit3freq_tradonly_thissuffix) %>% rownames()
+  coefsamples <- fixef(fit3freq_tradonly_thissuffix, summary=FALSE, pars=coefnames[-1]) %>%
+    as_tibble() %>%
+    rename("Traditional-Oracle"=periodcTraditionalMOracle,
+           "(Traditional-Oracle):rarity"="periodcTraditionalMOracle:rarity",
+           )
+  postplot <- mcmc_areas(coefsamples)
+  ggsave(here("analysis","output", paste0("bayesreg_freq_tradonly", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 2.5)
+
+  tableout<- xtable(fixef(fit3freq_tradonly_thissuffix), caption = "Coefficients for frequency regression (oracle vs traditional)" )
+  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression_tradonly", freqsuffix, ".tex")))
+}
+```
+
+
+### Character type, number of components
+
+```{r brms_ctype_fit, cache=TRUE}
+fit3_ctype <- brm( complexification ~ 0+C1Type, data = d_trad_vs_ob, chains = nchain )
+
+d_trad_vs_ob_smallcomp <- d_trad_vs_ob %>%
+  filter(numcomp <= 5) %>%
+  mutate(numcomp = factor(numcomp))
+
+fit3_numcomp <- brm( complexification ~ 0+numcomp, data = d_trad_vs_ob_smallcomp, chains = nchain)
+```
+
+
+```{r brms_ctype_out}
+coefnames <- fixef(fit3_ctype) %>% rownames()
+coefsamples <- fixef(fit3_ctype, summary=FALSE, pars=coefnames) %>%
+  as_tibble() %>%
+  rename("pictographic"="C1Typepictographic",
+         "pictologic"="C1Typepictologic",
+         "pictosyn"="C1Typepictosyn.",
+         "pictophon"="C1Typepictophon.",
+         "other"="C1Typeother")
+
+postplot_ctype <- mcmc_areas(coefsamples) +
+                  xlab('complexification')
+
+tableout<- xtable(fixef(fit3_ctype), caption = "Coefficients for ctype regression" )
+print(tableout, file = here("analysis", "output", "coeftable_ctype.tex"))
+
+coefnames <- fixef(fit3_numcomp) %>% rownames()
+coefsamples <- fixef(fit3_numcomp, summary=FALSE, pars=coefnames) %>%
+  as_tibble() %>%
+  rename("1 comp"="numcomp1",
+         "2 comp"="numcomp2",
+         "3 comp"="numcomp3",
+         "4 comp"="numcomp4",
+         "5 comp"="numcomp5")
+
+postplot_numcomp <- mcmc_areas(coefsamples) +
+                  xlab('complexification')
+
+tableout<- xtable(fixef(fit3_numcomp), caption = "Coefficients for numcomp regression" )
+print(tableout, file = here("analysis", "output", "coeftable_numcompregression.tex"))
+
+posteriors <- postplot_ctype + postplot_numcomp +
+    plot_annotation(tag_levels = c('a'), tag_suffix = ')')  +
+    theme(plot.tag = element_text(size = 9))
+
+ggsave(here("analysis","output", "bayesreg_ctype.pdf"), plot = posteriors, width = 7.08661,height = 3.5)
+```
+
+### Distinctiveness through time
+
+```{r brms_distinctiveness_fit, cache=TRUE}
+
+dsumm_brm_d <- d_dim_all %>%
+  mutate(periodc = sdif_coding(factor(period)))
+
+fit_d <- brm( distinctiveness ~ periodc + (1 + period| character), data = dsumm_brm_d, chains = nchain)
+```
+
+```{r brms_distinctiveness_out, cache=TRUE}
+
+pme3 <- plot(conditional_effects(fit_d), plot = FALSE, ask = FALSE)
+
+coefnames <- fixef(fit_d) %>% rownames()
+coefsamples <- fixef(fit_d, summary=FALSE, pars=coefnames[-1]) %>%
+  as_tibble() %>%
+  rename("Bronze-Oracle"=periodcBronzeMOracle, "Seal-Bronze"=periodcSealMBronze, "Traditional-Seal"=periodcTraditionalMSeal, "Simplified-Traditional"=periodcSimplifiedMTraditional)
+postplot <- mcmc_areas(coefsamples)
+
+ggsave(here("analysis","output", "bayesreg_period_distinctiveness.pdf"), plot = postplot,  width=4,height = 2.8)
+
+tableout<- xtable(fixef(fit_d), caption = "Coefficients for period regression (distinctiveness)" )
+print(tableout, file = here("analysis", "output", paste0("coeftable_periodregression_distinctiveness.tex")))
+```
+
+### Frequency and distinctiveness 
+
+```{r brms_freq_fit_distinct, cache=TRUE}
+
+dsumm_brm_freq_distinct <- d_dim_streams %>%
+  filter(first=="Oracle") %>%   # only characters in Oracle stream
+  mutate(periodl = as.numeric(period)) %>%
+  mutate(periodc = sdif_coding(factor(period))) %>%
+  select(character, period, periodl, periodc, distinctiveness, first, logfrequency, logfrequencyscale) %>% 
+  filter(!is.na(logfrequency)) %>%
+  mutate(rarity= -logfrequencyscale) 
+
+# adjusted frequency is the default
+for (freqsuffix in c("")) {
+  dsumm_forstats_distinct <- dsumm_brm_freq_distinct %>%
+    mutate(rarity = !!as.symbol(paste0("rarity", freqsuffix)))
+
+  dsumm_forstats_tradonly_distinct <- dsumm_forstats_distinct %>%
+    filter(period %in% c("Oracle", "Traditional")) %>%
+    mutate(periodc = sdif_coding(factor(period)))
+
+  assign(paste0("fit3_freq_distinct", freqsuffix), brm( distinctiveness ~ periodc + rarity + periodc*rarity + (1 + period| character), data = dsumm_forstats_distinct, chains = nchain) )
+}
+```
+
+```{r brms_freq_out_distinct}
+
+for (freqsuffix in c("")) {
+  fit3freq_thissuffix <- get(paste0("fit3_freq_distinct", freqsuffix))
+
+  coefnames <- fixef(fit3freq_thissuffix) %>% rownames()
+  coefsamples <- fixef(fit3freq_thissuffix, summary=FALSE, pars=coefnames[-1]) %>%
+    as_tibble() %>%
+    rename("Bronze-Oracle"=periodcBronzeMOracle,
+           "Seal-Bronze"=periodcSealMBronze,
+           "Traditional-Seal"=periodcTraditionalMSeal,
+           "Simplified-Traditional"=periodcSimplifiedMTraditional,
+           "(Bronze-Oracle):rarity"="periodcBronzeMOracle:rarity",
+           "(Seal-Bronze):rarity"="periodcSealMBronze:rarity",
+           "(Traditional-Seal):rarity"="periodcTraditionalMSeal:rarity",
+           "(Simplified-Traditional):rarity"="periodcSimplifiedMTraditional:rarity",
+           )
+
+  postplot <- mcmc_areas(coefsamples)
+  
+  ggsave(here("analysis","output", paste0("bayesreg_freq_distinct", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
+
+  tableout<- xtable(fixef(fit3freq_thissuffix), caption = "Coefficients for frequency regression" )
+  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression_distinct", freqsuffix, ".tex")))
+}
+```
+
+
+
+
+
