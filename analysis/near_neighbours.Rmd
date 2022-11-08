@@ -1,0 +1,98 @@
+---
+title: "Visualize nearest neighbours"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+Make Fig S12 (plot showing nearest neighbours of 天 in each script according to the CNN-based distance metric)
+
+```{r libraries}
+library(tidyverse)
+library(here)
+library(ggthemes)
+library(lme4)
+library(brms)
+library(RColorBrewer)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+library(xtable)
+library(dplyr)
+library(bayesplot)
+library(ropencc)
+library(showtext)
+library(ggimage)
+library(ggrepel)
+
+select <- dplyr::select
+showtext_auto()
+```
+
+
+```{r data, include=TRUE}
+
+d_distinct_path <-  here('data', 'distinctiveness', 'all_distinctiveness.csv')
+
+periods <- c( 'Oracle', 'Bronze', 'Seal', 'Traditional', 'Simplified')
+
+font_add("hiragino", "Hiragino Sans GB.ttc")
+
+chartheme <-  theme_classic(base_size = 10)  + 
+            theme(strip.background = element_blank()) +
+            theme(axis.text.y = element_text("hiragino", NULL, NULL, NULL))
+
+theme_set(chartheme)
+
+```
+
+```{r loadds, include=TRUE}
+
+d_distinct <-  read_csv(d_distinct_path)  %>% 
+  rename(character = simplified_character, complexity = perimetric_complexity, nearest_neighbours = `nearest neighbours`) %>% 
+  select(character, rendered_character, period, dataset, image_id, nearest_neighbours) %>% 
+  filter(!(dataset %in% c("Hiragino Sans GB", "SimSun"))) %>% 
+  mutate(period = factor(period, levels=periods, order=TRUE)) %>% # consider handwritten only
+  mutate(nearest_neighbours = str_remove_all(nearest_neighbours, "[ '\\[\\]]")) %>% 
+  separate(nearest_neighbours, c("c_0", "c_1", "c_2", "c_3", "c_4", "c_5", "c_6", "c_7", "c_8", "c_9"), sep=",") %>% 
+  mutate("c_" = rendered_character)
+
+imageIDs <- d_distinct %>% 
+  mutate(neighbour_character = rendered_character)  %>% 
+  select(neighbour_character, period, image_id)
+
+nnfigchars <-  d_distinct %>% 
+  filter(rendered_character=="天") %>% 
+  pivot_longer(cols = c(c_, c_0:c_9), names_to="char_rank", values_to="neighbour_character") %>% 
+  mutate(finalpathprefix = case_when( period == "Traditional" ~ "traditional_handwritten", 
+                                period == "Simplified" ~  "simplified_handwritten", 
+                                TRUE ~ "hanziyuan" 
+                              ))  %>% 
+  mutate(processedpath = here("figures", "figs12_pieces", finalpathprefix, paste0(neighbour_character, "_", period, ".png"))) 
+```
+
+All of the images were scaled outside of this notebook. Now make Fig S12 using these scaled images.
+
+```{r nnplot}
+nnplot <- nnfigchars %>% 
+  mutate(period = ordered(period, levels=periods)) %>% 
+  mutate(char_rank= ordered(char_rank, levels=c("c_", "c_0", "c_1", "c_2", "c_3", "c_4", "c_5", "c_6", "c_7", "c_8", "c_9"))) %>% 
+  mutate(char_rank= recode(char_rank, "c_"= "character", c_0 = "1", c_1 = "2", c_2="3", c_3="4", c_4="5", c_5="6", c_6 = "7", c_7 = "8", c_8="9", c_9 = "10")) %>% 
+  mutate(period = recode(period, Traditional= "Trad.", Simplified = "Simp.")) %>% 
+  ggplot() +
+  geom_image( aes(x=0, y=0, image = processedpath), 
+              size = 0.8, by = "height", asp = (3)/3
+              ) +
+  facet_grid(period~char_rank, switch = "y") +
+  scale_y_discrete(labels = NULL, breaks = NULL) + labs(y = "") +
+  scale_x_discrete(labels = NULL, breaks = NULL) + labs(x = "") +
+  theme(axis.line=element_blank())
+
+nnplot
+
+ggsave(here("figures", "figs12_nearest_neighbours.df"), plot = nnplot, width = 7,height = 3)
+
+```
+

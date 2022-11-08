@@ -619,7 +619,7 @@ freqplot_distinct
 
 ##  Alternative complexity measures
 
-This section generates Figure S15. See `descriptivecomplexity.Rmd` for code that generates Figure S16.
+This section generates Figure S15. See `descriptive_complexity.Rmd` for code that generates Figure S16.
 
 ```{r alternative_complexity}
 
