@@ -175,7 +175,7 @@ def dilate_image(image_path: str):
 
     image = skimage.img_as_ubyte(skimage.io.imread(image_path, as_gray=True))
     binary = np.array([np.array([True if px != 255 else False for px in row]) for row in image])
-    selem = skimage.morphology.disk(1)
+    selem = skimage.morphology.disk(5)
     binary = skimage.morphology.dilation(binary, selem)
     binary = skimage.util.invert(binary)
     skimage.io.imsave(image_path, binary)

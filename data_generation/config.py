@@ -31,7 +31,7 @@ HANDWRITTEN_DATASETS = ["hzy", "casia", "traditional"]
 FONT_DATASETS = ["Hiragino Sans GB", "SimSun"]
 
 # Where is everything located?
-ROOT = "../data" # Set me to something!
+ROOT = "C:/Users/User/Downloads/hanzi_data_final/hanzi_data" # Set me to something!
 IMAGES_LOCATION = f"{ROOT}/images"
 COMPLEXITIES_LOCATION = f"{ROOT}/complexities"
 DISTINCTIVENESS_LOCATION = f"{ROOT}/distinctiveness"
