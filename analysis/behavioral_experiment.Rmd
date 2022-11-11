@@ -39,10 +39,8 @@ mytheme <-  theme_classic(base_size = 10)  +
 
 theme_set(mytheme)
 
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/public/all_complexities.csv"
-# XXX tmp
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
-
+# Path to the main complexity file. May need to be adjusted depending on where you put all_complexities.csv after downloading the Zenodo folder
+dpath_all <-  here("data", "complexities", "all_complexities.csv")
 
 suffix = "pad"
 ```
@@ -297,29 +295,23 @@ The effect for the printed condition is not significant (p = 0.43).
 And now for the Bayesian analyses
 
 ```{r bayesianstats_handwritten, include=TRUE, cache=TRUE}
-#nchain <- 1 # for testing
-#niter <- 500 # for testing
-
-nchain <- 4 # for real run
-niter <- 4000 # for real run
+nchain <- 4 
+niter <- 4000 
 
 fit_handwritten <- brm( binrating ~ 1 + (1|character) + (1|participantid), family=bernoulli(), data = data_handwritten, chains = nchain, iter = niter ) 
 
 brms_tab_hw <- fixef(fit_handwritten) %>% as_tibble(rownames="NA") 
  
 brms_tab_hw
-
 ```
 The 95% credibility interval on the intercept is [`r round(brms_tab_hw$Q2.5, 2)`, `r round(brms_tab_hw$Q97.5, 2)`]. Because this interval excludes zero, our hypothesis is supported. 
 
 ```{r bayesianstats_printed, include=TRUE, cache=TRUE}
-
 fit_printed <- brm( binrating ~ 1 + (1|character) + (1|participantid), family=bernoulli(), data = data_printed, chains = nchain, iter = niter ) 
 
 brms_tab_printed <- fixef(fit_printed) %>% as_tibble(rownames="NA") 
  
 brms_tab_printed
-
 ```
 
 The 95% credibility interval on the intercept is [`r round(brms_tab_printed$Q2.5, 2)`, `r round(brms_tab_printed$Q97.5, 2)`]. 
@@ -327,3 +319,7 @@ The 95% credibility interval on the intercept is [`r round(brms_tab_printed$Q2.5
 ## Conclusion
 
 The overall set of results suggests that traditional pictographic characters are a little more complex than their oracle counterparts. For handwritten characters, the frequentist test gives us a significant result and the Bayesian credibility interval excludes zero. For printed characters the effect is not significant but goes in the predicted direction. Importantly, we see no evidence at all that oracle characters are simpler in general than traditional characters. 
+
+```{r sessioninfo, include=TRUE}
+devtools::session_info()
+```

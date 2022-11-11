@@ -3,12 +3,11 @@ title: "Main analyses and figures"
 output: html_document
 ---
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
-This notebook contains analyses reported in Han, Kelly, Winters & Kemp, Simplification is not dominant in the evolution of Chinese characters. Before running this notebook please replace the `data` folder in the GitHub repository with the complete data folder downloaded from Zenodo.
+This notebook contains analyses reported in Han, Kelly, Winters & Kemp, Simplification is not dominant in the evolution of Chinese characters. Before running this notebook please download the full data folder available from Zenodo and put `all_complexities.csv` in `data/complexities/`.
 
 ```{r libraries}
 library(tidyverse)
@@ -35,11 +34,8 @@ showtext_auto()
 
   
 ```{r data, include=TRUE}
-
-# Path to the main complexity file 
-dpath_all <- here("data", "complexities", "all_complexities.csv")
-# XXX tmp
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+# Path to the main complexity file. May need to be adjusted depending on where you put all_complexities.csv after downloading the Zenodo folder
+dpath_all <-  here("data", "complexities", "all_complexities.csv")
 
 # all images are scaled to a standard size and then padded (surrounded by whitespace on all sides)
 suffix = "pad"
@@ -74,13 +70,11 @@ mytheme <-  theme_classic(base_size = 10)  +
             theme(strip.background = element_blank()) 
 
 theme_set(chartheme)
-
 ```
 
 First load the key dataframes. Our analyses consider only characters that appear in the CLD.
 
 ```{r loadds, include=TRUE}
-
 # CLD: we focus on characters included in this resource
 d_cld <-  read_csv(dpath_cld) %>%
   # we want C1Frequency which is proportional to times that a character appears either alone or in another word
@@ -540,8 +534,9 @@ ggsave(here("figures", "figs13_distinctiveness_complexity_changes.pdf"), plot = 
 
 ##  Tradeoff between complexity and distinctiveness
 
-```{r complexity_distinct_tradeoff}
+Generate Figure 5. A random seed was not set before generating the samples for Figures 5b and 5c in the paper, so those figures will not be identical to the versions generated here.
 
+```{r complexity_distinct_tradeoff}
 d_tr_c <- read_csv(dpath_tradeoff_bincomplexity) 
 d_tr_d <- read_csv(dpath_tradeoff_bindistinct) 
 
@@ -671,7 +666,6 @@ ggsave(here("figures", "figs15_alt_complexity_measures.pdf"), plot = altcomplex,
 First run analyses of changes in complexity over time
 
 ```{r brms_main_fit, cache=TRUE}
-
 # Based in part on
 #https://github.com/paul-buerkner/monotonic-effects-paper/blob/master/monotonic_effects.Rmd
 
@@ -686,13 +680,12 @@ dsumm_brm <- dsumm %>%
   mutate(periodc = sdif_coding(factor(period))) %>%
   select(character, period, periodl, periodc, complexity, first, logfrequency, logfrequencyscale, logfrequencyraw, logfrequencyrawscale)
 
-nchain <- 1 # for testing
-nchain <- 4 # for paper
+nchain <- 4 
 
 fit3 <- brm( complexity ~ periodc + (1 + period| character), data = dsumm_brm, chains = nchain)
 ```
 
-```{r brms_main_out, cache=TRUE}
+```{r brms_main_out}
 
 pme3 <- plot(conditional_effects(fit3), plot = FALSE, ask = FALSE)
 
@@ -702,10 +695,10 @@ coefsamples <- fixef(fit3, summary=FALSE, pars=coefnames[-1]) %>%
   rename("Bronze-Oracle"=periodcBronzeMOracle, "Seal-Bronze"=periodcSealMBronze, "Traditional-Seal"=periodcTraditionalMSeal, "Simplified-Traditional"=periodcSimplifiedMTraditional)
 postplot <- mcmc_areas(coefsamples)
 
-ggsave(here("analysis","output", "bayesreg_period.pdf"), plot = postplot,  width=4,height = 2.8)
+ggsave(here("figures", "figs2_bayesreg_period.pdf"), plot = postplot,  width=4,height = 2.8)
 
 tableout<- xtable(fixef(fit3), caption = "Coefficients for period regression" )
-print(tableout, file = here("analysis", "output", paste0("coeftable_periodregression.tex")))
+print(tableout, file = here("tables", "coeftable_periodregression.tex"))
 
 ```
 
@@ -736,7 +729,6 @@ for (freqsuffix in c("", "raw")) {
 ```
 
 ```{r brms_freq_out}
-
 for (freqsuffix in c("", "raw")) {
   fit3freq_thissuffix <- get(paste0("fit3_freq", freqsuffix))
   fit3freq_tradonly_thissuffix  <-  get(paste0("fit3_freq_tradonly", freqsuffix))
@@ -756,10 +748,10 @@ for (freqsuffix in c("", "raw")) {
 
   postplot <- mcmc_areas(coefsamples)
 
-  ggsave(here("analysis","output", paste0("bayesreg_freq", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
+  ggsave(here("figures", paste0("figs7_s10_bayesreg_freq", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
 
   tableout<- xtable(fixef(fit3freq_thissuffix), caption = "Coefficients for frequency regression" )
-  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression", freqsuffix, ".tex")))
+  print(tableout, file = here("tables", paste0("coeftable_frequencyregression", freqsuffix, ".tex")))
 
   coefnames <- fixef(fit3freq_tradonly_thissuffix) %>% rownames()
   coefsamples <- fixef(fit3freq_tradonly_thissuffix, summary=FALSE, pars=coefnames[-1]) %>%
@@ -768,10 +760,10 @@ for (freqsuffix in c("", "raw")) {
            "(Traditional-Oracle):rarity"="periodcTraditionalMOracle:rarity",
            )
   postplot <- mcmc_areas(coefsamples)
-  ggsave(here("analysis","output", paste0("bayesreg_freq_tradonly", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 2.5)
+  ggsave(here("figures", paste0("figs8_s11_bayesreg_freq_tradonly", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 2.5)
 
   tableout<- xtable(fixef(fit3freq_tradonly_thissuffix), caption = "Coefficients for frequency regression (oracle vs traditional)" )
-  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression_tradonly", freqsuffix, ".tex")))
+  print(tableout, file = here("tables",  paste0("coeftable_frequencyregression_tradonly", freqsuffix, ".tex")))
 }
 ```
 
@@ -803,7 +795,7 @@ postplot_ctype <- mcmc_areas(coefsamples) +
                   xlab('complexification')
 
 tableout<- xtable(fixef(fit3_ctype), caption = "Coefficients for ctype regression" )
-print(tableout, file = here("analysis", "output", "coeftable_ctype.tex"))
+print(tableout, file = here("tables", "coeftable_ctype.tex"))
 
 coefnames <- fixef(fit3_numcomp) %>% rownames()
 coefsamples <- fixef(fit3_numcomp, summary=FALSE, pars=coefnames) %>%
@@ -818,19 +810,18 @@ postplot_numcomp <- mcmc_areas(coefsamples) +
                   xlab('complexification')
 
 tableout<- xtable(fixef(fit3_numcomp), caption = "Coefficients for numcomp regression" )
-print(tableout, file = here("analysis", "output", "coeftable_numcompregression.tex"))
+print(tableout, file = here("tables", "coeftable_numcompregression.tex"))
 
 posteriors <- postplot_ctype + postplot_numcomp +
     plot_annotation(tag_levels = c('a'), tag_suffix = ')')  +
     theme(plot.tag = element_text(size = 9))
 
-ggsave(here("analysis","output", "bayesreg_ctype.pdf"), plot = posteriors, width = 7.08661,height = 3.5)
+ggsave(here("figures", "figs6_bayesreg_ctype.pdf"), plot = posteriors, width = 7.08661,height = 3.5)
 ```
 
 ### Distinctiveness through time
 
 ```{r brms_distinctiveness_fit, cache=TRUE}
-
 dsumm_brm_d <- d_dim_all %>%
   mutate(periodc = sdif_coding(factor(period)))
 
@@ -838,7 +829,6 @@ fit_d <- brm( distinctiveness ~ periodc + (1 + period| character), data = dsumm_
 ```
 
 ```{r brms_distinctiveness_out, cache=TRUE}
-
 pme3 <- plot(conditional_effects(fit_d), plot = FALSE, ask = FALSE)
 
 coefnames <- fixef(fit_d) %>% rownames()
@@ -847,16 +837,15 @@ coefsamples <- fixef(fit_d, summary=FALSE, pars=coefnames[-1]) %>%
   rename("Bronze-Oracle"=periodcBronzeMOracle, "Seal-Bronze"=periodcSealMBronze, "Traditional-Seal"=periodcTraditionalMSeal, "Simplified-Traditional"=periodcSimplifiedMTraditional)
 postplot <- mcmc_areas(coefsamples)
 
-ggsave(here("analysis","output", "bayesreg_period_distinctiveness.pdf"), plot = postplot,  width=4,height = 2.8)
+ggsave(here("figures", "figs14_bayesreg_period_distinctiveness.pdf"), plot = postplot,  width=4,height = 2.8)
 
 tableout<- xtable(fixef(fit_d), caption = "Coefficients for period regression (distinctiveness)" )
-print(tableout, file = here("analysis", "output", paste0("coeftable_periodregression_distinctiveness.tex")))
+print(tableout, file = here("tables",  "coeftable_periodregression_distinctiveness.tex"))
 ```
 
 ### Frequency and distinctiveness 
 
 ```{r brms_freq_fit_distinct, cache=TRUE}
-
 dsumm_brm_freq_distinct <- d_dim_streams %>%
   filter(first=="Oracle") %>%   # only characters in Oracle stream
   mutate(periodl = as.numeric(period)) %>%
@@ -879,7 +868,6 @@ for (freqsuffix in c("")) {
 ```
 
 ```{r brms_freq_out_distinct}
-
 for (freqsuffix in c("")) {
   fit3freq_thissuffix <- get(paste0("fit3_freq_distinct", freqsuffix))
 
@@ -898,14 +886,16 @@ for (freqsuffix in c("")) {
 
   postplot <- mcmc_areas(coefsamples)
   
-  ggsave(here("analysis","output", paste0("bayesreg_freq_distinct", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
+  ggsave(here("figures", paste0("figs16_bayesreg_freq_distinct", freqsuffix, ".pdf")), plot = postplot,  width=5,height = 5)
 
   tableout<- xtable(fixef(fit3freq_thissuffix), caption = "Coefficients for frequency regression" )
-  print(tableout, file = here("analysis", "output", paste0("coeftable_frequencyregression_distinct", freqsuffix, ".tex")))
+  print(tableout, file = here("tables", paste0("coeftable_frequencyregression_distinct", freqsuffix, ".tex")))
 }
 ```
 
-
+```{r sessioninfo, include=TRUE}
+devtools::session_info()
+```
 
 
 

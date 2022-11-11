@@ -34,9 +34,8 @@ showtext_auto()
 
 
 ```{r data, include=TRUE}
-
-# XXX tmp
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+# Path to the main complexity file. May need to be adjusted depending on where you put all_complexities.csv after downloading the Zenodo folder
+dpath_all <-  here("data", "complexities", "all_complexities.csv")
 
 suffix = "pad"
 
@@ -179,4 +178,8 @@ svgfinal <- svgpatch + legend_svg + plot_layout(ncol = 2, nrow = 2) +
 ggsave(here("figures", "figs18_descriptivecomplexity.pdf"),  plot = svgfinal, width =  7.08661,height = 3.5)
 
 svgfinal 
+```
+
+```{r sessioninfo, include=TRUE}
+devtools::session_info()
 ```

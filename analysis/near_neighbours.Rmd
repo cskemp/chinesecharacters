@@ -92,7 +92,11 @@ nnplot <- nnfigchars %>%
 
 nnplot
 
-ggsave(here("figures", "figs12_nearest_neighbours.df"), plot = nnplot, width = 7,height = 3)
+ggsave(here("figures", "figs12_nearest_neighbours.pdf"), plot = nnplot, width = 7,height = 3)
 
 ```
 
+
+```{r sessioninfo, include=TRUE}
+devtools::session_info()
+```
