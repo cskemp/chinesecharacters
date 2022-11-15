@@ -614,7 +614,7 @@ freqplot_distinct
 
 ##  Alternative complexity measures
 
-This section generates Figure S15. See `descriptive_complexity.Rmd` for code that generates Figure S16.
+This section generates Figure S17. See `descriptive_complexity.Rmd` for code that generates Figure S18.
 
 ```{r alternative_complexity}
 
@@ -658,7 +658,7 @@ altcomplex <- pixcomplexity + strokecount + gifcomplexity +
 
 altcomplex
 
-ggsave(here("figures", "figs15_alt_complexity_measures.pdf"), plot = altcomplex,  width=7.08661,height = 2.8)
+ggsave(here("figures", "figs17_alt_complexity_measures.pdf"), plot = altcomplex,  width=7.08661,height = 2.8)
 ```
 
 ## Statistical analyses
