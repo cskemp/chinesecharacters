@@ -38,6 +38,8 @@ Handwritten simplified images are originally sourced from `http://www.nlpr.ia.ac
 
 Handwritten traditional images can be downloaded from from `https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset`. Specifically, you can first download the common words dataset using `git clone https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset.git`. You should then extract all four .zip files before moving the `cleaned_data` folder into your root data folder.
 
+#### Unexplained complexity differences
+We obtained slightly different pixel and perimetric complexity scores for 62878 of the images in our dataset when we ran our final code compared to when we ran our initial experiments. 305 of these images were padded images and the rest were stretched. All differences are documented in the 'unexplained_complexity_differences.csv' file, in which the 'old_X_complexity' column details the complexity that we found during experimentation, and the 'new_X_complexity' column details the complexity scores that we are finding while running our final cleaned up code. These differences are small, with most typically being a difference of only one or two pixels.
 
 ## Measuring Discriminability
 
