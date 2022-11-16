@@ -10,7 +10,7 @@ import multiprocessing
 import image_helpers
 
 
-def generate_dataframes(limit_dataset: str) -> None:
+def generate_dataframes(limit_dataset: str = "") -> None:
 
     logging.info("  Generating image complexity dataframes...")
     measure_complexity(limit_dataset)
@@ -67,6 +67,9 @@ def complexity_postprocessing():
     first = True
     t2s = opencc.OpenCC('t2s.json')
     s2t = opencc.OpenCC('s2t.json')
+    cld_characters = set(pd.read_csv(config.data_file_locations["cld"])["Character"])
+    cld_characters = cld_characters.union(set([s2t.convert(c) for c in cld_characters]))
+
     for stretch in (True, False):
         for dataset in config.HANDWRITTEN_DATASETS + config.FONT_DATASETS:
             complexity_dataset_path = f"{config.COMPLEXITIES_LOCATION}/{dataset}_{'stretched' if stretch else 'padded'}_{config.SKELETONISE_METHOD}.csv"
@@ -103,30 +106,38 @@ def complexity_postprocessing():
 
                 df["simplified_character"] = [t2s.convert(c) for c in df["original_character"]]
                 df["drop"] = [s2t.convert(row["simplified_character"]) != row["original_character"] for _, row in df.iterrows()]
-                df = df[~df["drop"]]
-            elif dataset in config.FONT_DATASETS:
-                df["simplified_character"] = [t2s.convert(c) for c in df["original_character"]]
-                df["period"] = ["Simplified" if row["simplified_character"] == row["original_character"] else "Traditional" for _, row in df.iterrows()]
-                df["drop"] = [s2t.convert(row["simplified_character"]) != row["original_character"] if row["period"] == "Traditional" else False for _, row in df.iterrows()]
+                
                 df = df[~df["drop"]]
 
-                traditional_simplified_characters = set(df[df["period"] == "Traditional"]["simplified_character"])
-                df_traditional = df[(df["period"] == "Simplified") & ~(df["simplified_character"].isin(traditional_simplified_characters))].copy()
-                df_traditional["period"] = ["Traditional"] * df_traditional.shape[0]
-                df = df.append(df_traditional, ignore_index=True)
+            elif dataset in config.FONT_DATASETS:
+
+                traditional_handwritten_characters = set(combined_df[combined_df["dataset"] == "traditional"]["original_character"])
+                simplified_handwritten_characters = set(combined_df[combined_df["dataset"] == "casia"]["original_character"])
+                
+                tdf = df[df["original_character"].isin(traditional_handwritten_characters)].copy()
+                tdf["period"] = ["Traditional"] * tdf.shape[0]
+                tdf["simplified_character"] = [t2s.convert(c) for c in tdf["original_character"]]
+                sdf = df[df["original_character"].isin(simplified_handwritten_characters)].copy()
+                sdf["period"] = ["Simplified"] * sdf.shape[0]
+                sdf["simplified_character"] = sdf["original_character"]
+                df = tdf.append(sdf, ignore_index=True)
+
+                # Only keep characters that are in the CLD
+                df = df[df["simplified_character"].isin(cld_characters)]
             else:
                 df["simplified_character"] = df["original_character"]
 
             df = df[["original_character", "simplified_character", "period", "image_ID", "dataset", "scale_method", "skeletonise_method", "perimetric_complexity", "pixel_complexity"]]
+
             if first:   
                 combined_df = df
                 first = False
             else:
                 combined_df = combined_df.append(df, ignore_index=True)
     
-    logging.info(f"    Combined complexity dataframes into single file of with {combined_df.shape[0]} rows.")
     combined_df = combined_df.rename({"original_character":"rendered_character"}, axis=1)
     combined_df = combined_df[combined_df["period"].isin(config.PERIODS)].reset_index(drop=True)
     combined_df.to_csv(config.data_file_locations["all_complexities"])
+    logging.info(f"    Combined complexity dataframes into single file of with {combined_df.shape[0]} rows.")
 
     return
