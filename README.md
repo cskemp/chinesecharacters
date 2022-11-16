@@ -22,6 +22,6 @@ This folder contains all of the materials for our behavioural experiment, includ
 #### figures
 This folder contains all of the figures for both the main paper and the supplementary materials.
 
-#### figures
+#### tables
 This folder contains tables presented in the supplementary materials.
 
