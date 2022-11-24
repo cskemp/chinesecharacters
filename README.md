@@ -25,5 +25,5 @@ This folder contains all of the figures for both the main paper and the suppleme
 #### tables
 This folder contains tables presented in the supplementary materials.
 
-#### Root level scripts
+#### root level scripts
 'generate_sample_data_folder.py': generates the 'data' folder within this repo, which holds a sample of our full dataset (first 1000 lines of every csv, sample of 20 images of 20 characters for every period/dataset). This is provided for convenience.
