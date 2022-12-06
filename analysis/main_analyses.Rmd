@@ -35,7 +35,11 @@ showtext_auto()
   
 ```{r data, include=TRUE}
 # Path to the main complexity file. May need to be adjusted depending on where you put all_complexities.csv after downloading the Zenodo folder
+
 dpath_all <-  here("data", "complexities", "all_complexities.csv")
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
+dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/public/all_complexities.csv"
+dpath_all <- "/Users/ckemp/Downloads/hanzi_data/complexities/all_complexities.csv"
 
 # all images are scaled to a standard size and then padded (surrounded by whitespace on all sides)
 suffix = "pad"
@@ -104,7 +108,7 @@ d_c <- read_csv(dpath_all) %>%
 
 # pull out median or representative closest to median (break ties by preferring simpler characters)
 d_c_meds <- d_c %>% 
-  group_by(period, character) %>% 
+  group_by(period, character, dataset) %>% 
   mutate(medn = median(complexity), medndiff = abs(complexity - medn), minmedndiff=min(medndiff)) %>% 
   ungroup() %>% 
   filter( (round(minmedndiff,3) == round(medndiff,3) ) & (round(complexity,3) <= round(medn, 3)) ) %>% 
@@ -137,6 +141,14 @@ d_font <- dsumm %>%
 
 dsumm <- dsumm %>%  
   filter(!(dataset %in% c("Hiragino Sans GB", "SimSun"))) 
+
+shiny_data <- d_c_meds %>% 
+  select(character, period, image_ID, dataset) %>% 
+  left_join(dsumm, by = c("character", "period", "dataset")) %>% 
+  select(character, period, complexity, dataset, image_ID) 
+  
+write_csv(shiny_data, here("complexity_change_shiny", "complexity_change.csv"))
+
 ```
 
 ### Character counts for complexity analysis (left part of Table S1)
