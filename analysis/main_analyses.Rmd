@@ -82,8 +82,8 @@ First load the key dataframes. Our analyses consider only characters that appear
 # CLD: we focus on characters included in this resource
 d_cld <-  read_csv(dpath_cld) %>%
   # we want C1Frequency which is proportional to times that a character appears either alone or in another word
-  select(Character, C1Type, C1Frequency, AdjustedC1Frequency, Strokes) %>%
-  rename(character= Character,rawfrequency=C1Frequency, frequency=AdjustedC1Frequency, stroke_count=Strokes) %>%
+  select(Character, C1Type, C1Frequency, AdjustedC1Frequency, Strokes, Pinyin) %>%
+  rename(character= Character,rawfrequency=C1Frequency, frequency=AdjustedC1Frequency, stroke_count=Strokes, pinyin = Pinyin) %>%
   mutate(C1Type = factor(C1Type, levels = c("Picto","PicLog", "PicSyn", "PicPho", "Other"))) %>%
   mutate(C1Type= recode(C1Type, Picto= "pictographic", PicLog= "pictologic", PicSyn = "pictosyn.", PicPho = "pictophon.", Other="other")) %>% 
   mutate(logfrequencyraw = log10(rawfrequency), 
@@ -113,7 +113,7 @@ d_c_meds <- d_c %>%
   ungroup() %>% 
   filter( (round(minmedndiff,3) == round(medndiff,3) ) & (round(complexity,3) <= round(medn, 3)) ) %>% 
   # pick one representative per period if there are several with same distance from median complexity
-  distinct(across(c("character", "period")), .keep_all = TRUE) 
+  distinct(across(c("character", "period", "dataset")), .keep_all = TRUE) 
 
 # number of components
 d_ncomp <-  read_csv(dpath_ncomp, name_repair = "unique") %>%
@@ -143,10 +143,14 @@ dsumm <- dsumm %>%
   filter(!(dataset %in% c("Hiragino Sans GB", "SimSun"))) 
 
 shiny_data <- d_c_meds %>% 
+  filter(!(dataset %in% c("Hiragino Sans GB", "SimSun")))  %>% 
   select(character, period, image_ID, dataset) %>% 
   left_join(dsumm, by = c("character", "period", "dataset")) %>% 
-  select(character, period, complexity, dataset, image_ID) 
-  
+  rename("type"="C1Type") %>%  
+  mutate(type = recode_factor(type,"pictophon."="pictophonetic", "pictosyn."="pictosynthetic")) %>% 
+  select(character, pinyin, period, type ,complexity, dataset, image_ID) %>% 
+  mutate(dropdown_label = paste0(character, ' (', pinyin, ')'))
+
 write_csv(shiny_data, here("complexity_change_shiny", "complexity_change.csv"))
 
 ```
