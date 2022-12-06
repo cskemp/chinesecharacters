@@ -64,15 +64,18 @@ if __name__ == "__main__":
             imagepath = f"{IMAGE_ROOT}/handwritten_simplified_raw/{character}/{image_id}.png"
             process_and_save_image(imagepath, destpath)
         elif dataset == "traditional":
-            try:
-                imagepath = f"{IMAGE_ROOT}/handwritten_traditional_raw/{s2t.convert(character)}/{image_id}.png"
+
+            # This is some error in the original dataset
+            if character == "幕":
+                imagepath = f"{IMAGE_ROOT}/handwritten_traditional_raw/p/{image_id}.png"
                 process_and_save_image(imagepath, destpath)
-            except:
+            else:
                 try:
-                    imagepath = f"{IMAGE_ROOT}/handwritten_traditional_raw/{character}/{image_id}.png"
+                    imagepath = f"{IMAGE_ROOT}/handwritten_traditional_raw/{s2t.convert(character)}/{image_id}.png"
                     process_and_save_image(imagepath, destpath)
                 except:
-                    missing.append((character, dataset, image_id, period))
+                    imagepath = f"{IMAGE_ROOT}/handwritten_traditional_raw/{character}/{image_id}.png"
+                    process_and_save_image(imagepath, destpath)
     
     missing_df = pd.DataFrame(missing, columns=["character", "dataset", "image_id", "period"])
     missing_df.to_csv("missing_images.csv")
