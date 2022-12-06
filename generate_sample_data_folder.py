@@ -1,6 +1,7 @@
 """
 Generates a sample data folder to upload to the repo by copying the file structure of the actual data folder, 
-as well as the first 1000 lines of every csv and a random sample of 3 images in every image folder.
+as well as the first 10000 lines of every large csv (>100mb), the full file for every small (<100mb) csv 
+and a random sample of 3 images in every image folder.
 """
 
 import os
@@ -9,7 +10,7 @@ import random
 import pandas as pd
 
 SOURCE_FOLDER = "C:/Users/User/Downloads/hanzi_data_final"
-MAX_ROWS = 1000
+MAX_ROWS = 10000
 NUM_SAMPLES = 20
 random.seed(0)
  
@@ -26,7 +27,11 @@ def copy_file_samples(folder):
             file_source_path = f"{SOURCE_FOLDER}/{folder}/{f}"
             file_dest_path = f"{folder}/{f}"
             if "csv" in f or "tsv" in f:
-                df = pd.read_csv(file_source_path, index_col=0).iloc[:MAX_ROWS]
+                size_mb = os.path.getsize(file_source_path) / 1048576
+                if size_mb < 100:
+                    df = pd.read_csv(file_source_path, index_col=0)
+                else:
+                    df = pd.read_csv(file_source_path, index_col=0).iloc[:MAX_ROWS]
                 df.to_csv(file_dest_path)
             else:
                 shutil.copyfile(file_source_path, file_dest_path)
