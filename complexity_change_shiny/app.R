@@ -1,14 +1,21 @@
 #Write a shiny app with a line graph that displays data from a file on my computer called character_complexity.csv. The file contains three columns: character, period and complexity.  First, add a side bar with a dropdown that lets users choose which character they want to plot. The line graph should show period on the x-axis and character on the y-axis.
 
+#Error: Unhandled Exception: Child Task 1254266346 failed: Error parsing manifest: Manifest file count (12486) greater than maximum allowed (6000)
 
-#rsconnect::deployApp(here("complexity_change_shiny"))
+
+#options(rsconnect.max.bundle.files=13000)
+  #rsconnect::deployApp(here("complexity_change_shiny"))
+
 
 library(shiny)
 library(tidyverse)
+library(ggimage)
 
 # load the data from the csv file
 complexity_data <- read_csv("complexity_change.csv") %>%
-  mutate(period = factor(period, levels = c("Oracle", "Bronze", "Seal", "Simplified", "Traditional")))
+  mutate(script = factor(script, levels = c("Oracle", "Bronze", "Seal", "Traditional", "Simplified"))) %>%
+  mutate(image_path= paste0("images/", image_path))
+
 types <-  c("pictographic", "pictologic", "pictosynthetic", "pictophonetic", "other")
 
 # set plot theme
@@ -31,8 +38,6 @@ ui <- fluidPage(
   )
 )
 
-
-
 server <- function(input, output) {
 
   # Filter the characters based on the selected type
@@ -51,32 +56,17 @@ server <- function(input, output) {
      selected_char <- data_filtered() %>%
         filter(dropdown_label== input$character)
 
-    ggplot(selected_char , aes(x = period, y = complexity, group = character)) +
+    ggplot(selected_char , aes(x = script, y = complexity, group = character)) +
       geom_point() +
       geom_line() +
+      geom_image( aes(x=script, y=0 + complexity, image = image_path),
+                  size = 0.15, by = "height", asp = (6+0.5)/4
+      ) +
+      scale_y_continuous(expand = expansion(mult = 0.1)) +
       labs(title = paste("Complexity over time of ", input$character))
    }
   })
 }
-
-#selectizeInput("character", "Choose a character:", choices = NULL)
-
-#server <- function(input, output) {
-#  # create a reactive object that filters the data based on the selected character
-#  selected_data <- reactive({
-#    complexity_data %>%
-#      filter(character == input$character)
-#  })
-
-#  # create the line graph
-#  output$complexity_plot <- renderPlot({
-#    ggplot(selected_data(), aes(x = period, y = complexity, group = character)) +
-#      geom_point() +
-#      geom_line() +
-#      labs(title = paste("Complexity over time of ", input$character))
-#  })
-#}
-
 
 shinyApp(ui = ui, server = server)
 

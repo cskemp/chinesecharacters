@@ -1,1 +1,5 @@
 rsconnect/
+translate_terms.R
+app_images.R
+.rs_connect_profile
+.rscignore

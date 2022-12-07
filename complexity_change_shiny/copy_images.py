@@ -56,7 +56,7 @@ if __name__ == "__main__":
         image_id = row["image_ID"]
         period = row["period"]
 
-        destpath = f"images/{character}_{period}_{image_id}_{dataset}.png"
+        destpath = f"images_full/{character}_{period}_{image_id}_{dataset}.png"
         if dataset == "hzy":
             imagepath = f"{IMAGE_ROOT}/hanziyuan_raw/{character}/{period}/{image_id}.svg"
             process_and_save_image(imagepath, destpath)
