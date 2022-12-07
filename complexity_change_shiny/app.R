@@ -10,6 +10,9 @@
 library(shiny)
 library(tidyverse)
 library(ggimage)
+#library(showtext)
+
+#font_add("hiragino", "Hiragino Sans GB.ttc")
 
 # load the data from the csv file
 complexity_data <- read_csv("complexity_change.csv") %>%
