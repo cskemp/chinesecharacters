@@ -2,17 +2,12 @@
 
 #Error: Unhandled Exception: Child Task 1254266346 failed: Error parsing manifest: Manifest file count (12486) greater than maximum allowed (6000)
 
-
 #options(rsconnect.max.bundle.files=13000)
   #rsconnect::deployApp(here("complexity_change_shiny"))
-
 
 library(shiny)
 library(tidyverse)
 library(ggimage)
-#library(showtext)
-
-#font_add("hiragino", "Hiragino Sans GB.ttc")
 
 # load the data from the csv file
 complexity_data <- read_csv("complexity_change.csv") %>%

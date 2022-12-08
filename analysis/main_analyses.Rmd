@@ -27,7 +27,6 @@ library(showtext)
 library(ggimage)
 library(ggrepel)
 library(knitr)
-library(pinyin)
 
 select <- dplyr::select
 showtext_auto()
@@ -149,10 +148,10 @@ shiny_data <- d_c_meds %>%
   left_join(dsumm, by = c("character", "period", "dataset")) %>% 
   rename("type"="C1Type") %>%  
   mutate(type = recode_factor(type,"pictophon."="pictophonetic", "pictosyn."="pictosynthetic")) %>% 
-  select(character, pinyin, period, type, rawfrequency, complexity, dataset, image_ID) %>% 
-  mutate(pinyin = py(character)) %>% 
+  select(character, period, type, rawfrequency, complexity, dataset, image_ID) %>% 
+  #mutate(pinyin = py(character)) %>% 
   rename("frequency"="rawfrequency", "script" = "period") %>%  
-  left_join(read_csv(here("complexity_change_shiny", "cld_translations.csv")), by="character") %>% 
+  left_join(read_csv(here("complexity_change_shiny", "cld_pinyin.csv")), by="character") %>% 
   mutate(translation = if_else(translation=="I", translation, tolower(translation))) %>% 
   mutate(dropdown_label = paste0(character, ' (', pinyin, ', ', translation, ')')) %>% 
   mutate(image_path = paste0(paste(character, script, image_ID, dataset, sep="_"), ".png")) 
