@@ -121,6 +121,7 @@ conditioncmeanplot <- expsummnolab %>%
 conditioncmeanplot
 
 ```
+
 Let's now look at the responses for individual characters. First we make Fig S3:
 
 ```{r bycharacter_hwtrad, include=TRUE, fig.height=8, fig.width=7}

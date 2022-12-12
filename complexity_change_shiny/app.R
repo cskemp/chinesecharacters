@@ -1,10 +1,3 @@
-#Write a shiny app with a line graph that displays data from a file on my computer called character_complexity.csv. The file contains three columns: character, period and complexity.  First, add a side bar with a dropdown that lets users choose which character they want to plot. The line graph should show period on the x-axis and character on the y-axis.
-
-#Error: Unhandled Exception: Child Task 1254266346 failed: Error parsing manifest: Manifest file count (12486) greater than maximum allowed (6000)
-
-#options(rsconnect.max.bundle.files=13000)
-  #rsconnect::deployApp(here("complexity_change_shiny"))
-
 library(shiny)
 library(tidyverse)
 library(ggimage)
@@ -19,6 +12,7 @@ types <-  c("pictographic", "pictologic", "pictosynthetic", "pictophonetic", "ot
 # set plot theme
 chartheme <-  theme_classic(base_size = 14)  +
   theme(strip.background = element_blank())
+
 theme_set(chartheme)
 
 # create a shiny app

@@ -35,11 +35,7 @@ showtext_auto()
   
 ```{r data, include=TRUE}
 # Path to the main complexity file. May need to be adjusted depending on where you put all_complexities.csv after downloading the Zenodo folder
-
 dpath_all <-  here("data", "complexities", "all_complexities.csv")
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/final/hanzi_data/complexities/all_complexities.csv"
-dpath_all <- "/Users/ckemp/bigdatanonarchival/hanzi/public/all_complexities.csv"
-dpath_all <- "/Users/ckemp/Downloads/hanzi_data/complexities/all_complexities.csv"
 
 # all images are scaled to a standard size and then padded (surrounded by whitespace on all sides)
 suffix = "pad"
@@ -95,7 +91,6 @@ d_cld_freqs <-  d_cld %>%
   select(character, frequency, logfrequency, logfrequencyscale)
 
 # the Simplified data set includes many punctuation marks but they aren't included in our analysis because we only consider characters in the CLD 
-
 d_c <- read_csv(dpath_all) %>%
   filter(scale_method ==suffix) %>% 
   rename(character =simplified_character, complexity= perimetric_complexity) %>% 
@@ -149,7 +144,6 @@ shiny_data <- d_c_meds %>%
   rename("type"="C1Type") %>%  
   mutate(type = recode_factor(type,"pictophon."="pictophonetic", "pictosyn."="pictosynthetic")) %>% 
   select(character, period, type, rawfrequency, complexity, dataset, image_ID) %>% 
-  #mutate(pinyin = py(character)) %>% 
   rename("frequency"="rawfrequency", "script" = "period") %>%  
   left_join(read_csv(here("complexity_change_shiny", "cld_pinyin.csv")), by="character") %>% 
   mutate(translation = if_else(translation=="I", translation, tolower(translation))) %>% 
