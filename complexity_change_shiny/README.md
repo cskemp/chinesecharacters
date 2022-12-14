@@ -22,8 +22,8 @@ I previously used the "pinyin" library in R but found it unreliable.
 
 Manual changes to cld_pinyin.csv:
 
-唔,Well, 锟?  -> 唔,Well, wú
-戸,household, 戸 -> 戸,household, hù
-嗯,Um, 锟? ->  嗯,Um, ēn
-嘛,Well, mB  -> 嘛,Well, ma 
+* 唔,Well, 锟?  -> 唔,Well, wú 
+* 戸,household, 戸 -> 戸,household, hù 
+* 嗯,Um, 锟? ->  嗯,Um, ēn 
+* 嘛,Well, mB  -> 嘛,Well, ma  
 
