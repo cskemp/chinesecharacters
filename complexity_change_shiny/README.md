@@ -1,20 +1,15 @@
-Materials for the shiny app available at
-
-http://www.charleskemp.com/code/chinese_complexity_change.html
-
+Materials for the Shiny app available [here]( https://www.charleskemp.com/code/chinese_complexity_change.html )
 
 #### images_full
-contains images for all characters in the CLD. The app doesn't use the full set because we're hosting it on shinyapps.io which currently allows up to 6000 files only
-
+contains images for all characters in the CLD. The app doesn't use the full set to allow us to host it on shinyapps.io which currently allows up to 6000 files only
 
 #### images
 contains the images used by the app. These images consist of all 232 pictographic and all 48 pictologic characters in the Chinese Lexical Database (CLD), and the 1333 most frequent characters among the remaining characters in the CLD.
 
 
+#### assorted notes
 
-#### assorted details
-
-cld_pinyin.csv was created by copying cld_translations.csv and adding pinyin column based on 
+cld_pinyin.csv was created by copying cld_translations.csv and adding a pinyin column based on:
 
 https://www.chineseconverter.com/en/convert/chinese-to-pinyin
 
